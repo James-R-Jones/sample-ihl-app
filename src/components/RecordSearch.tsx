@@ -1,10 +1,11 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from 'clinical-primitives';
-import { buildIndex, parseQuery, search, type SearchResult } from '../search';
+import { Button, RadioButton } from 'clinical-primitives';
+import { buildIndex, firstAndLast, parseQuery, search, type SearchResult } from '../search';
 import { href, replaceHash, type SearchIntent } from '../routes';
 import type { SectionConfigs } from '../settings';
 import { SearchResultDialog } from './SearchResultDialog';
 import { SearchResultsList, resultKey } from './SearchResultsList';
+import { SearchGroupsList, fmtDay, groupCount } from './SearchGroupsList';
 
 type Config = SectionConfigs['search'];
 
@@ -20,6 +21,7 @@ export function RecordSearch({ resources, config, patientId, intent }: {
   const [type, setType] = useState<string | null>(null);
   const [limit, setLimit] = useState(config.pageSize);
   const [open, setOpen] = useState<SearchResult | null>(null);
+  const [view, setView] = useState<'groups' | 'all'>('groups');
   const rootRef = useRef<HTMLDivElement>(null);
 
   const index = useMemo(() => {
@@ -66,6 +68,7 @@ export function RecordSearch({ resources, config, patientId, intent }: {
   }, [all]);
 
   const shown = type ? all.filter(r => r.resource.resourceType === type) : all;
+  const overall = useMemo(() => firstAndLast(shown), [shown]);
 
   return (
     <div className="record-search" ref={rootRef}>
@@ -96,10 +99,37 @@ export function RecordSearch({ resources, config, patientId, intent }: {
         </div>
       )}
 
-      {shown.length > 0 && <SearchResultsList results={shown.slice(0, limit)} terms={terms} onOpen={setOpen} />}
-      {shown.length > limit && (
+      {shown.length > 0 && (
+        <div className="search-overall">
+          {overall.first && (
+            <>
+              <span className="muted">First match</span>
+              <button type="button" className="date-link" onClick={() => setOpen(overall.first!)}>{fmtDay(overall.first.date)}</button>
+            </>
+          )}
+          {overall.last && overall.last !== overall.first && (
+            <>
+              <span className="muted">Most recent</span>
+              <button type="button" className="date-link" onClick={() => setOpen(overall.last!)}>{fmtDay(overall.last.date)}</button>
+            </>
+          )}
+          <div className="app-spacer" />
+          <RadioButton
+            value={view}
+            onChange={v => { setView(v as 'groups' | 'all'); setLimit(config.pageSize); }}
+            options={[
+              { value: 'groups', label: `By item (${groupCount(shown)})` },
+              { value: 'all', label: `All results (${shown.length})` },
+            ]}
+          />
+        </div>
+      )}
+      {shown.length > 0 && (view === 'groups'
+        ? <SearchGroupsList results={shown} terms={terms} onOpen={setOpen} limit={limit} />
+        : <SearchResultsList results={shown.slice(0, limit)} terms={terms} onOpen={setOpen} />)}
+      {(view === 'groups' ? groupCount(shown) : shown.length) > limit && (
         <Button variant="muted" onClick={() => setLimit(l => l + config.pageSize)}>
-          Show more ({(shown.length - limit).toLocaleString()} remaining)
+          Show more ({((view === 'groups' ? groupCount(shown) : shown.length) - limit).toLocaleString()} remaining)
         </Button>
       )}
       {terms.length > 0 && all.length === 0 && deferred === query && <p className="muted">No matches.</p>}

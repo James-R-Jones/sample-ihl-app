@@ -64,7 +64,7 @@ bar brings hidden sections back and sets the theme. Settings are saved in localS
 |---|---|---|
 | Patient | `PatientSummary` (app) | none |
 | Search this record | `RecordSearch` (app) with library `Dialog`, `SourceDialog` | notes-only matches, resource types to leave out, results per page |
-| Treatment timeline | `TimelineChart` with `MedicationsTimeline`, `ObservationsTimeline`, `BarChartTimeline` | lab rows, non-IBD meds, encounter classes (or all), rows by class or visit type, endoscopy |
+| Treatment timeline | `TimelineChart` with `MedicationsTimeline`, `ObservationsTimeline`, `BarChartTimeline` | lab rows; drug classes shown (incl. non-IBD); all or active courses; encounter classes; rows by class or visit type; endoscopy |
 | IBD lab trends | `LabTrendPanel` | labs |
 | IBD lab charts | `ObservationChart` per lab | labs, chart height |
 | Conditions | `ConditionList` | none |
@@ -121,7 +121,10 @@ Indexes every string and number in every loaded resource, plus the decoded text 
 attachments (DocumentReference content, DiagnosticReport presentedForm). IDs, references,
 code-system URLs, base64 data and the HTML narrative (`text.div`, which duplicates the note)
 are skipped. All words must match somewhere in a resource; quotes keep a phrase together.
-Results are newest first, filterable by resource type, with highlighted snippets. Clicking a
+Results are filterable by resource type and shown either **by item** (every result with the same
+type and title, e.g. all "infliximab 100 MG Injection" orders, as one row with its count and links
+to its first and most recent occurrence) or as **all results**, newest first, with highlighted
+snippets. Links to the overall first and most recent match sit above the list. Clicking a
 result opens a dialog with every matching field, the full note text with matches highlighted,
 the raw source, and "Show visit" for the encounter it belongs to (shown with `EncounterDetail`).
 
@@ -139,13 +142,17 @@ excluded), or any encounter with a pediatric gastroenterology note. The rule is
 
 ### Cohort search (patient list)
 
-The box above the patient grid searches inside every patient's record, with the same rules as
-the record search. The first query loads and indexes each record in the browser (three at a
-time; about 1.8 MB per patient in this cohort), and matches appear as records finish. A
-**Matches** column shows each patient's result count, and "Only patients with matches" hides
-the rest. Clicking a count opens that patient's results; picking one opens the patient at
-`#/patient/<id>?q=<query>&open=<Type/id>`, with the search run and that result's dialog open.
-Clicking a patient's name while a query is active opens them with the search run.
+The table's own search box searches names and the table's columns and, at the same time, every
+patient's full record, with the same rules as the record search. The first query loads and
+indexes each record in the browser (three at a time; about 1.8 MB per patient in this cohort),
+and matches appear as records finish. While a search is active the table adds **Matches**,
+**First match** and **Latest match**; each date links straight to that result in the patient's
+record (`#/patient/<id>?q=<query>&open=<Type/id>`). "Only patients with matches" hides patients
+whose columns and record both miss. Clicking a count opens that patient's results grouped by item.
+
+`DataGrid` decides which columns are visible once, when it mounts, and hides columns added later,
+so the search columns are passed on its first render and dropped before paint while no search is
+active (see `MountFlag` in `PatientList.tsx`).
 
 Records and indexes are cached for the session, so opening a patient afterwards does not fetch
 again, and the query is remembered when coming back to the list. The API has no server-side
@@ -162,12 +169,16 @@ server-side index instead.
 
 ### Treatment timeline notes
 
+- Opens on the patient's whole record. Every encounter class is on by default; rows and whole
+  layers (therapy, labs, encounters) appear only when they have data, so nothing shows empty.
+- All settings are in the section's gear modal. The library's own per-layer gear, its sidebar
+  Settings block and its per-layer summary are hidden (CSS in `app.css`), because they described
+  the library's filters rather than ours; the sidebar still shows details of a clicked bar or point.
 - Medications are grouped by IBD drug class (anti-TNF, other biologic, JAK/S1P,
   immunomodulator, systemic corticosteroid, 5-ASA) by name. Inhaled and topical steroids are
   excluded because this cohort uses them for asthma and eczema.
-- IBD therapy courses are always shown, completed ones included. The timeline's own
-  "Only show active medications" toggle (gear in the IBD therapy row) applies to the non-IBD
-  medications, which are off by default.
+- Which medications appear is decided by the app (`medClass` in `TreatmentTimeline.tsx`), not
+  the library: all courses or active only, per drug class, with non-IBD medications off by default.
 - Encounters can be filtered by class (ambulatory, emergency, inpatient, observation, virtual,
   home health, other) or shown all at once, and grouped one row per class or per visit type.
   Defaults are emergency and inpatient, by class.

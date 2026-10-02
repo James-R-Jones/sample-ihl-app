@@ -117,3 +117,33 @@ export function fieldLabel(path: string): string {
   const label = words.join(' › ');
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
+
+/** Earliest and most recent dated results (by their own date). */
+export function firstAndLast(results: SearchResult[]): { first?: SearchResult; last?: SearchResult } {
+  const dated = results.filter(r => r.date).sort((a, b) => a.date!.localeCompare(b.date!));
+  return { first: dated[0], last: dated[dated.length - 1] };
+}
+
+/** Results for the same thing (same type and title), e.g. every infliximab order. */
+export interface HitGroup {
+  key: string;
+  type: string;
+  title: string;
+  results: SearchResult[];
+  first?: SearchResult;
+  last?: SearchResult;
+}
+
+/** Groups results by type and title; most recently seen groups first, undated last. */
+export function groupResults(results: SearchResult[]): HitGroup[] {
+  const groups = new Map<string, HitGroup>();
+  for (const r of results) {
+    const key = `${r.resource.resourceType}|${r.title.toLowerCase()}`;
+    const g = groups.get(key) ?? { key, type: r.resource.resourceType, title: r.title, results: [] };
+    g.results.push(r);
+    groups.set(key, g);
+  }
+  return [...groups.values()]
+    .map(g => ({ ...g, ...firstAndLast(g.results) }))
+    .sort((a, b) => (b.last?.date ?? '').localeCompare(a.last?.date ?? '') || b.results.length - a.results.length);
+}

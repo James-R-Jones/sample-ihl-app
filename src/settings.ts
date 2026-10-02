@@ -33,6 +33,10 @@ export interface SectionConfigs {
     labs: string[];
     /** Show non-IBD medications (antibiotics, inhalers, ...) as grey rows. */
     otherMeds: boolean;
+    /** All courses, or only active ones. */
+    medStatus: 'all' | 'active';
+    /** Drug-class keys (see IBD_CLASSES, plus 'other') left off the timeline. */
+    hiddenMedClasses: string[];
     /** Endoscopy procedures as their own row. */
     endoscopy: boolean;
     /** Encounter classes (v3 ActCode, e.g. AMB, EMER, IMP) to plot. */
@@ -76,8 +80,11 @@ export const DEFAULT_SETTINGS: Settings = {
     timeline: {
       labs: ['CRP', 'Calprotectin', 'Albumin', 'Hemoglobin'],
       otherMeds: false,
+      medStatus: 'all',
+      hiddenMedClasses: [],
       endoscopy: true,
-      encounterClasses: ['EMER', 'IMP'],
+      // Every class; rows only appear for classes this patient has.
+      encounterClasses: ['AMB', 'EMER', 'IMP', 'OBSENC', 'VR', 'HH', 'OTHER'],
       encounterGroupBy: 'class',
     },
     labTrends: { labs: IBD_LABS },

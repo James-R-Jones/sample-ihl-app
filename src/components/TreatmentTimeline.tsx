@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { DocumentReference, Encounter, Procedure } from 'fhir/r4';
+import type { DocumentReference, Encounter, Observation, Procedure } from 'fhir/r4';
 import {
   Button, TimelineChart, lib, useClinicalData,
   type MedicationClassifier, type MedicationLegendEntry, type TimelineAnalyte, type TimelineMedication,
@@ -13,7 +13,7 @@ import type { SectionConfigs } from '../settings';
 type Config = SectionConfigs['timeline'];
 
 /** IBD drug classes, matched on the medication's name. First match wins. */
-const IBD_CLASSES = [
+export const IBD_CLASSES = [
   { key: 'anti-tnf',       label: 'Anti-TNF',        color: 'var(--cp-color-red)',    match: /infliximab|adalimumab|certolizumab|golimumab/i },
   { key: 'biologic',       label: 'Other biologic',  color: 'var(--cp-color-purple)', match: /vedolizumab|ustekinumab|risankizumab|mirikizumab|guselkumab/i },
   { key: 'small-molecule', label: 'JAK / S1P',       color: 'var(--cp-color-blue)',   match: /tofacitinib|upadacitinib|filgotinib|ozanimod|etrasimod/i },
@@ -25,7 +25,10 @@ const IBD_CLASSES = [
   { key: '5-asa',          label: '5-ASA',           color: 'var(--cp-color-teal)',   match: /mesalamine|mesalazine|sulfasalazine|balsalazide|olsalazine/i },
 ] as const;
 
-const OTHER = { key: 'other', label: 'Other', color: 'var(--cp-color-gray)' };
+export const OTHER_MEDS = { key: 'other', label: 'Non-IBD', color: 'var(--cp-color-gray)' };
+
+/** Statuses counted as active, matching the library's own definition. */
+const ACTIVE = new Set(['active', 'in-progress']);
 
 function ibdClass(med: TimelineMedication) {
   const text = lib.Medication.getMedicationName(med) ?? '';
@@ -57,29 +60,46 @@ export function TreatmentTimeline({ config }: { config: Config }) {
   const { resources, patient } = useClinicalData();
   const patientId = patient?.id;
 
-  // Stable for a given setting, as MedicationsTimeline requires (it is a memo
-  // dependency there). IBD therapy courses are always kept, completed ones
-  // included, because the treatment history is the point of this view; the
-  // section's own "only active" toggle then applies to the other medications.
+  // Which medications the timeline shows, decided here rather than by the
+  // library's own controls (its gear is hidden; every setting lives in this
+  // section's modal). Returns the drug class, or null to leave it out.
+  const medClass = useCallback((med: TimelineMedication) => {
+    if (config.medStatus === 'active' && !ACTIVE.has(med.status ?? '')) return null;
+    const cls = ibdClass(med) ?? (config.otherMeds ? OTHER_MEDS : null);
+    if (!cls || config.hiddenMedClasses.includes(cls.key)) return null;
+    return cls;
+  }, [config.medStatus, config.otherMeds, config.hiddenMedClasses]);
+
+  // Stable for a given setting, as MedicationsTimeline requires (a memo
+  // dependency there). `base` is ignored for inclusion: the library's
+  // "only active" default would otherwise hide completed courses.
   const classify = useCallback<MedicationClassifier>((base, med) => {
-    const cls = ibdClass(med);
-    if (cls) {
-      const name = base?.name ?? lib.Medication.getShortMedicationName(med) ?? 'Unnamed medication';
-      return {
-        ...base, name,
-        color: cls.color,
-        category: { key: cls.key, label: cls.label },
-        order: IBD_CLASSES.indexOf(cls),
-      };
-    }
-    if (!config.otherMeds || !base) return null;
-    return { ...base, color: OTHER.color, category: { key: OTHER.key, label: OTHER.label }, order: 100 };
-  }, [config.otherMeds]);
+    const cls = medClass(med);
+    if (!cls) return null;
+    const i = IBD_CLASSES.findIndex(c => c.key === cls.key);
+    return {
+      ...base,
+      name: base?.name ?? lib.Medication.getShortMedicationName(med) ?? 'Unnamed medication',
+      color: cls.color,
+      category: { key: cls.key, label: cls.label },
+      order: i < 0 ? 100 : i,
+    };
+  }, [medClass]);
+
+  const meds = useMemo(() => [
+    ...((resources?.MedicationRequest ?? []) as unknown as TimelineMedication[]),
+    ...((resources?.MedicationAdministration ?? []) as unknown as TimelineMedication[]),
+  ], [resources]);
+  const shownMeds = useMemo(() => meds.filter(m => medClass(m)), [meds, medClass]);
 
   const analytes = useMemo<TimelineAnalyte[]>(() => config.labs
     .filter(key => LAB_CODES[key])
     .map(key => ({ code: [...LAB_CODES[key].loincs], label: LAB_CODES[key].label })),
   [config.labs]);
+
+  const labCodes = useMemo(() => new Set(analytes.flatMap(a => a.code as string[])), [analytes]);
+  const labObs = useMemo(() => ((resources?.Observation ?? []) as unknown as Observation[])
+    .filter(o => o.code?.coding?.some(c => c.code && labCodes.has(c.code))), [resources, labCodes]);
 
   // The encounter (or procedure without one) whose details are in the sidebar.
   const [selected, setSelected] = useState<string | null>(null);
@@ -141,6 +161,8 @@ export function TreatmentTimeline({ config }: { config: Config }) {
     return rows;
   }, [resources, config.endoscopy, config.encounterClasses, config.encounterGroupBy]);
 
+  const hasChart = eventRows.length > 0 || labObs.length > 0 || shownMeds.length > 0;
+
   // The chart's selection state is internal to the library (its context is
   // not exported), so this section tracks its own pick. Any click in the plot
   // area can change the chart's selection: another section's mark, or empty
@@ -160,7 +182,8 @@ export function TreatmentTimeline({ config }: { config: Config }) {
     el.addEventListener('click', onClick, true);
     el.addEventListener('keydown', onKey);
     return () => { el.removeEventListener('click', onClick, true); el.removeEventListener('keydown', onKey); };
-  }, []);
+    // Re-attach when the chart appears (it is not rendered while empty).
+  }, [hasChart]);
 
   const selection = selected && resources ? (
     <EncounterDetail
@@ -173,15 +196,33 @@ export function TreatmentTimeline({ config }: { config: Config }) {
     />
   ) : undefined;
 
+  // Open on the whole record rather than the library's default two years,
+  // so no row starts out looking empty. The range pills still zoom in.
+  const extent = useMemo(() => {
+    const times: number[] = [];
+    const add = (s?: string) => { const t = time(s); if (!Number.isNaN(t)) times.push(t); };
+    for (const m of shownMeds as any[]) add(m.authoredOn ?? m.effectiveDateTime ?? m.effectivePeriod?.start);
+    for (const o of labObs) add(o.effectiveDateTime ?? o.effectivePeriod?.start);
+    for (const row of eventRows) for (const b of row.bars) { times.push(b.x1, b.x2); }
+    if (!times.length) return null;
+    const lo = Math.min(...times), hi = Math.max(...times);
+    const pad = Math.max((hi - lo) * 0.03, 30 * 86400000);
+    return { minX: lo - pad, maxX: hi + pad };
+  }, [shownMeds, labObs, eventRows]);
+
+  if (!hasChart) return <p className="muted">Nothing to show with the current settings. Use the gear to add medications, labs or encounters.</p>;
+
   return (
     <div className="treatment-timeline" ref={rootRef}>
-      <TimelineChart>
-        <TimelineChart.MedicationsTimeline
-          label="IBD therapy"
-          classify={classify}
-          legend={(entries: MedicationLegendEntry[]) => <Legend entries={entries} />}
-        />
-        {analytes.length > 0 && (
+      <TimelineChart minX={extent?.minX} maxX={extent?.maxX}>
+        {shownMeds.length > 0 && (
+          <TimelineChart.MedicationsTimeline
+            label={config.otherMeds ? 'Medications' : 'IBD therapy'}
+            classify={classify}
+            legend={(entries: MedicationLegendEntry[]) => <Legend entries={entries} />}
+          />
+        )}
+        {labObs.length > 0 && (
           <TimelineChart.ObservationsTimeline label="Labs" title="Labs" analytes={analytes} showAbsent={false} />
         )}
         {eventRows.length > 0 && (

@@ -192,3 +192,28 @@ mark.hl { background: rgb(from var(--cp-color-yellow) r g b / .45); color: inher
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field .muted { font-size: .82rem; }
 .endpoint-dialog-foot { gap: 8px; }
+
+/* All timeline settings live in the section's modal: hide the library's
+   per-layer gear and the Settings block it shows in the sidebar (the sidebar
+   stays for details of a clicked bar or point). */
+.treatment-timeline button[title="Section settings"],
+.treatment-timeline .cp-timeline-chart-sidebar-panel > section:has(> h5 > svg.lucide-cog),
+/* Its per-layer summary too: it describes the library's own filters ("13
+   non-active medications are hidden"), not the ones set in our modal. */
+.treatment-timeline .cp-timeline-chart-sidebar-panel > section:not(:has(> h5)) { display: none; }
+.legend-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+/* Grouped search results ----------------------------------------------------- */
+.search-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 4px 0; }
+.search-group-main {
+  flex: 1; min-width: 260px; display: flex; align-items: center; gap: 8px; text-align: left; cursor: pointer;
+  border: 0; background: none; color: inherit; font: inherit; padding: 8px; border-radius: 6px;
+}
+.search-group-main:hover { background: var(--cp-color-win-2); }
+.search-group-dates { display: flex; align-items: center; gap: 8px; font-size: .88rem; white-space: nowrap; }
+.date-link {
+  border: 1px solid var(--cp-color-win-3); background: var(--cp-color-win-1); color: var(--cp-color-blue);
+  font: inherit; font-size: .85rem; padding: 2px 10px; border-radius: 999px; cursor: pointer;
+}
+.date-link:hover { border-color: var(--cp-color-blue); }
+.search-overall { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .9rem; }

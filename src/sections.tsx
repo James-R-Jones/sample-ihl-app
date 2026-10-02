@@ -15,7 +15,7 @@ import { LabCharts } from './components/LabCharts';
 import { LabPicker } from './components/LabPicker';
 import { PatientSummary } from './components/PatientSummary';
 import { RecordSearch } from './components/RecordSearch';
-import { TreatmentTimeline } from './components/TreatmentTimeline';
+import { IBD_CLASSES, OTHER_MEDS, TreatmentTimeline } from './components/TreatmentTimeline';
 import type { ObservationFilter, SectionConfigs, SectionId } from './settings';
 import type { SearchIntent } from './routes';
 
@@ -104,10 +104,34 @@ export const SECTIONS: Registry = {
         <LabPicker label="Lab rows" value={config.labs} onChange={labs => set({ labs })} />
         <fieldset className="setting-group">
           <legend className="muted-label">Medications</legend>
-          <label className="setting-row">
-            <CheckBox checked={config.otherMeds} onChange={e => set({ otherMeds: e.currentTarget.checked })} />
-            Also show non-IBD medications
-          </label>
+          <div className="lab-picker">
+            {[...IBD_CLASSES, OTHER_MEDS].map(c => {
+              const isOther = c.key === OTHER_MEDS.key;
+              const on = (isOther ? config.otherMeds : true) && !config.hiddenMedClasses.includes(c.key);
+              return (
+                <label key={c.key} className="setting-row">
+                  <CheckBox
+                    checked={on}
+                    onChange={() => {
+                      const hidden = config.hiddenMedClasses.filter(k => k !== c.key);
+                      if (isOther) set({ otherMeds: !on, hiddenMedClasses: hidden });
+                      else set({ hiddenMedClasses: on ? [...hidden, c.key] : hidden });
+                    }}
+                  />
+                  <i className="legend-swatch" style={{ background: c.color }} />
+                  {c.label}
+                </label>
+              );
+            })}
+          </div>
+          <div className="setting-inline">
+            <span className="muted-label">Courses</span>
+            <RadioButton
+              value={config.medStatus}
+              onChange={v => set({ medStatus: v as 'all' | 'active' })}
+              options={[{ value: 'all', label: 'All' }, { value: 'active', label: 'Active only' }]}
+            />
+          </div>
         </fieldset>
         <fieldset className="setting-group">
           <legend className="muted-label">Encounters</legend>

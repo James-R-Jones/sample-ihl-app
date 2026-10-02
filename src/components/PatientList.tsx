@@ -1,10 +1,11 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, CheckBox, DataGrid, Dialog, Loader } from 'clinical-primitives';
 import { listAllPatients } from '../api';
 import { toRow, type PatientRow } from '../patient';
 import { useCohortIndex, useCohortResults } from '../cohortSearch';
 import { href, navigate } from '../routes';
-import { parseQuery, type SearchResult } from '../search';
+import { firstAndLast, groupResults, parseQuery, type SearchResult } from '../search';
+import { SearchGroupsList } from './SearchGroupsList';
 import { SearchResultsList, resultKey } from './SearchResultsList';
 import { EndpointPicker } from './EndpointPicker';
 import { ENDPOINT } from '../config';
@@ -43,7 +44,6 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
   const [error, setError] = useState<Error | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [search, setSearch] = useState('');
   const [sortColumn, setSortColumn] = useState('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [offset, setOffset] = useState(0);
@@ -61,6 +61,13 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
   const cohort = useCohortIndex(ids, active);
   const results = useCohortResults(cohort.entries, terms, cohort.loaded);
   useEffect(() => saveQuery(recordQuery), [recordQuery]);
+
+  // DataGrid decides which columns are visible once, when it mounts, and
+  // treats columns added later as hidden. So the search columns are passed
+  // on its first render too, then dropped before paint while no search is
+  // active; they come back visible when one starts.
+  const [gridMounted, setGridMounted] = useState(false);
+  const showSearchCols = active || !gridMounted;
 
   // Most recent visit / IBD clinic visit per patient (two cohort-wide calls).
   const [visits, setVisits] = useState<Map<string, VisitSummary> | null>(null);
@@ -83,26 +90,31 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
 
   // DataGrid is controlled: filter, sort and page here, hand it the window.
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     let hits = rows.map(r => ({
       ...r,
       lastVisit: visits?.get(r.id)?.last?.date,
       lastIbdVisit: visits?.get(r.id)?.lastIbd?.date,
     }));
-    hits = q
-      ? hits.filter(r =>
-          [r.name, r.mrn, r.id, r.gender, r.location, r.birthDate]
-            .some(v => v.toLowerCase().includes(q)))
-      : hits;
     if (active) {
-      hits = hits.map(r => ({ ...r, matches: results.get(r.id)?.length ?? null }));
-      // Patients still loading stay listed until their count is known.
-      if (onlyMatches) hits = hits.filter(r => r.matches !== 0);
+      hits = hits.map(r => {
+        const res = results.get(r.id);
+        const fl = res ? firstAndLast(res) : {};
+        return { ...r, matches: res?.length ?? null, firstMatch: fl.first?.date, lastMatch: fl.last?.date };
+      });
+      // One box searches both: a patient shows if the table's own columns
+      // match every word, or their record does. Records still loading stay
+      // listed until their count is known.
+      if (onlyMatches) {
+        hits = hits.filter(r => {
+          const cols = [r.name, r.mrn, r.id, r.gender, r.location, r.birthDate].join(' ').toLowerCase();
+          return terms.every(t => cols.includes(t)) || r.matches !== 0;
+        });
+      }
     }
     const sorted = [...hits].sort((a, b) =>
       compare(a[sortColumn as keyof PatientRow], b[sortColumn as keyof PatientRow]));
     return sortDir === 'desc' ? sorted.reverse() : sorted;
-  }, [rows, visits, search, sortColumn, sortDir, active, results, onlyMatches]);
+  }, [rows, visits, terms, sortColumn, sortDir, active, results, onlyMatches]);
 
   const page = filtered.slice(offset, offset + PAGE_SIZE);
   const counts = useMemo(() => ({
@@ -142,17 +154,9 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
       {visitsError && !error && <Alert variant="warning">Could not load visit dates: {visitsError.message}</Alert>}
 
       <div className="cohort-search">
-        <input
-          type="search"
-          className="search-input"
-          placeholder='Search inside every patient record, e.g. vedolizumab, "perianal fistula"'
-          value={recordQuery}
-          onChange={e => { setRecordQuery(e.target.value); setOffset(0); }}
-          aria-label="Search inside every patient record"
-        />
         <div className="cohort-search-status">
           {!active ? (
-            <span className="muted">Finds patients whose record mentions your words, including clinical note text. All words must match; quotes keep a phrase.</span>
+            <span className="muted">The search box above the table looks through names and every patient's full record, notes included. All words must match; quotes keep a phrase.</span>
           ) : (
             <>
               <span>
@@ -182,7 +186,7 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
                 {r.name}{r.deceased && <span className="muted"> (deceased)</span>}
               </a>
             ) },
-          ...(active ? [{
+          ...(showSearchCols ? [{
             propName: 'matches', label: 'Matches', dataType: 'number' as const, sortProp: 'matches',
             renderCell: (r: PatientRow & { matches: number | null }) => {
               const st = cohort.entries[r.id]?.status;
@@ -196,6 +200,21 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
               );
             },
           }] : []),
+          ...(showSearchCols ? (['firstMatch', 'lastMatch'] as const).map(prop => ({
+            propName: prop, label: prop === 'firstMatch' ? 'First match' : 'Latest match', dataType: 'string' as const, sortProp: prop,
+            renderCell: (r: PatientRow) => {
+              const res = results.get(r.id);
+              if (!res) return <span className="muted">…</span>;
+              const hit = firstAndLast(res)[prop === 'firstMatch' ? 'first' : 'last'];
+              if (!hit) return <span className="muted">—</span>;
+              return (
+                <a className="patient-link" href={href.patient(r.id, { q: deferredQuery, open: resultKey(hit) })}
+                  data-tooltip={`${hit.resource.resourceType}: ${hit.title}`}>
+                  {fmtDay(hit.date!)}
+                </a>
+              );
+            },
+          })) : []),
           { propName: 'gender', label: 'Sex', dataType: 'string', sortProp: 'gender' },
           // Some cohorts (e.g. smartcumulus.org) omit birth dates, so both can be empty.
           { propName: 'birthDate', label: 'Birth date', dataType: 'string', sortProp: 'birthDate',
@@ -221,11 +240,13 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
         sortDir={sortDir}
         onSortChange={(col, dir) => { setSortColumn(col); setSortDir(dir); setOffset(0); }}
         onPaginationChange={setOffset}
-        search={search}
-        onSearchChange={s => { setSearch(s); setOffset(0); }}
+        search={recordQuery}
+        onSearchChange={s => { setRecordQuery(s); setOffset(0); }}
         loading={loading}
         onNavigate={(row: PatientRow) => (active ? navigate(href.patient(row.id, { q: deferredQuery })) : onOpen(row.id))}
       />
+
+      <MountFlag onMount={() => setGridMounted(true)} />
 
       {matchesFor && (
         <PatientMatchesDialog
@@ -256,15 +277,23 @@ function PatientMatchesDialog({ patient, query, terms, results, onClose }: {
           <span className="muted">Matches for <b>{query}</b>. Pick one to open it in this patient's record.</span>
           <Button variant="info" onClick={() => navigate(href.patient(patient.id, { q: query }))}>Open patient with this search</Button>
         </div>
-        <SearchResultsList
-          results={results.slice(0, limit)}
+        <SearchGroupsList
+          results={results}
           terms={terms}
+          limit={limit}
           onOpen={r => navigate(href.patient(patient.id, { q: query, open: resultKey(r) }))}
         />
-        {results.length > limit && (
-          <Button variant="muted" onClick={() => setLimit(l => l + 25)}>Show more ({results.length - limit} remaining)</Button>
+        {groupResults(results).length > limit && (
+          <Button variant="muted" onClick={() => setLimit(l => l + 25)}>Show more</Button>
         )}
       </div>
     </Dialog>
   );
+}
+
+/** Calls onMount in the same commit it mounts in (before the browser paints). */
+function MountFlag({ onMount }: { onMount: () => void }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(onMount, []);
+  return null;
 }

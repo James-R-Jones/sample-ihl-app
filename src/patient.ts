@@ -46,6 +46,9 @@ export interface PatientRow {
   lastIbdVisit?: string;
   /** Cohort record-search result count; null while that record is loading. */
   matches?: number | null;
+  /** ISO dates of the earliest and most recent record-search hit (sort keys). */
+  firstMatch?: string;
+  lastMatch?: string;
 }
 
 export function toRow(p: Patient): PatientRow {

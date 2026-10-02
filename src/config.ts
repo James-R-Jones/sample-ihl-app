@@ -1,4 +1,5 @@
-export const FHIR_API_BASE: string = (
-  import.meta.env.VITE_FHIR_API_BASE ??
-  'https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients'
-).replace(/\/+$/, '');
+import { ACTIVE_ENDPOINT } from './endpoints';
+
+/** The data source for this page load; see endpoints.ts. */
+export const ENDPOINT = ACTIVE_ENDPOINT;
+export const FHIR_API_BASE: string = ENDPOINT.url.replace(/\/+$/, '');

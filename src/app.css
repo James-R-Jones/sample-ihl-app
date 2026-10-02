@@ -182,3 +182,13 @@ mark.hl { background: rgb(from var(--cp-color-yellow) r g b / .45); color: inher
 
 .visit-cell { display: flex; flex-direction: column; line-height: 1.25; }
 .visit-cell-detail { font-size: .78rem; color: var(--cp-color-txt-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Data source picker ------------------------------------------------------- */
+.endpoint-picker { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; flex-wrap: wrap; }
+.endpoint-select {
+  font: inherit; padding: 5px 8px; border-radius: 6px; max-width: 100%;
+  border: 1px solid var(--cp-color-win-3); background: var(--cp-color-win); color: var(--cp-color-txt);
+}
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field .muted { font-size: .82rem; }
+.endpoint-dialog-foot { gap: 8px; }

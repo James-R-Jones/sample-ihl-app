@@ -6,6 +6,8 @@ import { useCohortIndex, useCohortResults } from '../cohortSearch';
 import { href, navigate } from '../routes';
 import { parseQuery, type SearchResult } from '../search';
 import { SearchResultsList, resultKey } from './SearchResultsList';
+import { EndpointPicker } from './EndpointPicker';
+import { ENDPOINT } from '../config';
 import { loadVisitSummaries, type VisitInfo, type VisitSummary } from '../visits';
 
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -115,6 +117,7 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
       <div className="section-head">
         <div>
           <h1>Patients</h1>
+          <EndpointPicker />
           <p className="muted">
             {rows.length} synthetic patients · {counts.female} female · {counts.male} male
           </p>
@@ -130,8 +133,13 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
         </div>
       </div>
 
-      {error && <Alert variant="danger">Could not load patients: {error.message}</Alert>}
-      {visitsError && <Alert variant="warning">Could not load visit dates: {visitsError.message}</Alert>}
+      {error && (
+        <Alert variant="danger">
+          Could not load patients from <b>{ENDPOINT.label}</b>: {error.message}.
+          {error instanceof TypeError && ' The server may be down, or not allowing requests from this site. Try another data source above.'}
+        </Alert>
+      )}
+      {visitsError && !error && <Alert variant="warning">Could not load visit dates: {visitsError.message}</Alert>}
 
       <div className="cohort-search">
         <input

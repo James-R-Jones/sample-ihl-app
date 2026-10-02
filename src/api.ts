@@ -11,7 +11,7 @@
  */
 import type { FhirResource } from 'clinical-primitives';
 import type { Patient } from 'fhir/r4';
-import { FHIR_API_BASE } from './config';
+import { ENDPOINT, FHIR_API_BASE } from './config';
 
 export interface Pagination {
   total: number;
@@ -62,11 +62,11 @@ async function fetchWithRetry(url: string, init: RequestInit): Promise<Response>
 }
 
 async function post<T>(path: string, body: object, signal?: AbortSignal): Promise<T> {
-  // The JSON content type is required: without it the server ignores the
-  // body, so `patients` and `fields` filters silently do nothing.
+  // The FastAPI server needs the JSON content type (it ignores the body
+  // otherwise); the AWS deployment's CORS preflight rejected it. See endpoints.ts.
   const res = await fetchWithRetry(`${FHIR_API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: ENDPOINT.jsonContentType ? { 'Content-Type': 'application/json' } : undefined,
     body: JSON.stringify(body),
     signal,
   });
@@ -92,7 +92,7 @@ export function listResources<T = FhirResource>(
   if (patients?.length) body.patients = patients;
   if (fields?.length) body.fields = fields;
   const qs = new URLSearchParams({ offset: String(offset), limit: String(limit) });
-  return post<ListResponse<T>>(`/${resourceType.toLowerCase()}?${qs}`, body, signal);
+  return post<ListResponse<T>>(`/${resourceType.toLowerCase()}${ENDPOINT.trailingSlash ? '/' : ''}?${qs}`, body, signal);
 }
 
 /** Pages through a resource type until every record has been fetched. */

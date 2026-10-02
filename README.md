@@ -31,13 +31,27 @@ Each viewer's layout and section settings live in their own browser storage. The
 unauthenticated and the data is synthetic; anything pointed at real data needs authentication
 (for example SMART on FHIR) before a link is shared.
 
-## Pointing at another cohort
+## Data sources
 
-The API base URL defaults to the `sim-ibd-patients` cohort. To change it:
+The **Data source** dropdown on the patient list switches between cohort endpoints. Built in:
 
-```bash
-cp .env.example .env.local   # then edit VITE_FHIR_API_BASE
-```
+| Name | URL | Style |
+|---|---|---|
+| SMART Cumulus · Synthetic IBD (default) | `https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients` | FastAPI |
+| AWS test · Synthetic IBD | `https://04sdlmjrsh.execute-api.us-east-1.amazonaws.com/test/fhir/sim-ibd-patients` | AWS (currently returns 403) |
+
+**Add…** saves another endpoint in this browser after testing it (`GET /resources` and a Patient
+list call). Endpoints differ in two protocol details, set per endpoint in `src/endpoints.ts`:
+FastAPI servers need `Content-Type: application/json` and paths without a trailing slash; the
+AWS API Gateway deployment needed the opposite of both. Tick "AWS API Gateway style" when adding
+one of those.
+
+Switching reloads the app at the patient list so no data from the previous source is reused.
+The choice is kept in this browser and in the page URL (`?endpoint=<id>`, or the URL itself for
+added endpoints), so a shared link opens on the same data, even for someone who never added it.
+
+To add a built-in default for a deployment, set `VITE_FHIR_API_BASE` (see `.env.example`); it
+appears first in the list as "Configured (.env)".
 
 ## What's in it
 
@@ -61,6 +75,7 @@ bar brings hidden sections back and sets the theme. Settings are saved in localS
 | File | Purpose |
 |---|---|
 | `src/search.ts`, `src/components/RecordSearch.tsx`, `src/components/SearchResultDialog.tsx`, `src/components/Highlight.tsx` | Full-text record search: index, query, results, detail dialog |
+| `src/endpoints.ts`, `src/components/EndpointPicker.tsx` | Data sources: built-ins, saved endpoints, per-endpoint protocol style, picker and add dialog |
 | `src/routes.ts` | Hash routes: `#/`, `#/patient/<id>`, `#/patient/<id>/encounter/<encId>` |
 | `src/components/PatientPage.tsx` | Loads a patient's record once; shows the dashboard or one encounter |
 | `src/components/EncounterDetail.tsx`, `src/encounter.ts` | One encounter: details, clinical notes, every linked resource, source viewer. Shown in the timeline sidebar and on the encounter page |

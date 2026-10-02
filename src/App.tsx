@@ -3,7 +3,7 @@ import { PatientList } from './components/PatientList';
 import { PatientPage } from './components/PatientPage';
 import { SectionsMenu } from './components/SectionsMenu';
 import { useSettings } from './settings';
-import { FHIR_API_BASE } from './config';
+import { ENDPOINT } from './config';
 import { href, navigate, useRoute } from './routes';
 
 export function App() {
@@ -15,9 +15,7 @@ export function App() {
       <div className="app">
         <header className="app-header">
           <a className="app-title" href={href.list()}>IHL Patient Explorer</a>
-          <span className="app-source" title={FHIR_API_BASE}>
-            {FHIR_API_BASE.split('/').slice(-1)[0]}
-          </span>
+          <span className="app-source" title={ENDPOINT.url}>{ENDPOINT.label}</span>
           <div className="app-spacer" />
           <SectionsMenu api={settingsApi} />
         </header>

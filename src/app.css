@@ -1,0 +1,184 @@
+:root { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+html, body { margin: 0; background: var(--cp-color-win); color: var(--cp-color-txt); }
+
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.app-header {
+  display: flex; align-items: center; gap: 12px; padding: 10px 20px;
+  border-bottom: 1px solid var(--cp-color-win-3); background: var(--cp-color-win-1);
+  position: sticky; top: 0; z-index: 10;
+}
+.app-title { font-weight: 600; font-size: 1.05rem; color: inherit; text-decoration: none; }
+.app-source { font-size: .8rem; color: var(--cp-color-txt-4); font-family: ui-monospace, monospace; }
+.app-spacer { flex: 1; }
+.app-main { flex: 1; padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+
+.section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.section-head h1 { margin: 0; font-size: 1.5rem; }
+.section-actions { display: flex; gap: 8px; align-items: center; }
+.muted { color: var(--cp-color-txt-4); margin: 4px 0 0; }
+.patient-link { color: var(--cp-color-blue); text-decoration: none; font-weight: 500; }
+.patient-link:hover { text-decoration: underline; }
+
+.page-head { margin-bottom: 12px; }
+
+/* Dashboard sections ------------------------------------------------------ */
+.section-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 16px; align-items: start; }
+.section {
+  background: var(--cp-color-win-1); border: 1px solid var(--cp-color-win-3); border-radius: 8px;
+  min-width: 0; display: flex; flex-direction: column;
+}
+.section--wide { grid-column: 1 / -1; }
+.section-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px 16px; }
+.section-title { margin: 0; font-size: 1rem; font-weight: 600; flex: 1; }
+.section-controls { display: flex; gap: 2px; opacity: .55; transition: opacity .15s; }
+.section:hover .section-controls, .section-controls:focus-within { opacity: 1; }
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  border: 0; border-radius: 6px; background: none; color: var(--cp-color-txt-3); cursor: pointer;
+}
+.icon-btn:hover { background: var(--cp-color-win-2); color: var(--cp-color-txt); }
+.icon-btn--active { background: var(--cp-color-win-3); color: var(--cp-color-txt); }
+/* Section settings modal (inside the library Dialog, whose body has no padding). */
+.section-settings {
+  padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 14px;
+  max-height: calc(90vh - 120px); overflow-y: auto;
+}
+.section-settings-foot { display: flex; justify-content: flex-end; padding: 10px 16px 14px; border-top: 1px solid var(--cp-color-win-3); }
+.section-settings-layout { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--cp-color-win-3); padding-top: 10px; }
+.section-body { padding: 4px 16px 16px; min-width: 0; }
+
+/* Library components bring their own card chrome and title; inside a section
+   the section frame provides both, so flatten them. */
+.section-body > .cp-panel, .section-body > .card > .cp-panel, .section-body .obs-panel {
+  border: 0; background: none; box-shadow: none; padding: 0; margin: 0;
+}
+.section-body > .cp-panel > .cp-panel-header,
+.section-body .obs-panel-title { display: none; }
+
+.setting-group { border: 0; margin: 0; padding: 0; }
+.muted-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--cp-color-txt-4); margin-right: 6px; }
+.setting-group > legend { margin-bottom: 4px; padding: 0; }
+.setting-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+.lab-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); column-gap: 12px; }
+
+.summary h2 { margin: 0 0 8px; }
+.summary-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; color: var(--cp-color-txt-3); }
+.summary-counts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.count-chip { font-size: .8rem; padding: 2px 8px; border-radius: 999px; background: var(--cp-color-win-2); }
+
+.timeline-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .75rem; color: var(--cp-color-txt-4); }
+.timeline-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+.settings { min-width: 380px; }
+.settings h4 { margin: 16px 0 6px; }
+.settings h4:first-child { margin-top: 0; }
+.settings-foot { display: flex; justify-content: space-between; margin-top: 20px; }
+
+@media (max-width: 600px) {
+  .section-grid { grid-template-columns: 1fr; }
+  .app-main { padding: 12px; }
+}
+
+/* clinical-primitives' .cp-row gets min-height: 500px unless an ancestor has a
+   cp-* class, which pushes the DataGrid toolbar down. Neutralise it here. */
+.data-grid > .cp-row { min-height: auto; }
+
+.lab-charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.lab-chart { min-width: 0; border: 1px solid var(--cp-color-win-3); border-radius: 6px; padding: 8px; }
+
+/* Encounter view ----------------------------------------------------------- */
+.encounter { display: flex; flex-direction: column; gap: 16px; }
+.encounter .page-head { margin-bottom: 0; }
+.encounter-nav { display: flex; gap: 8px; align-items: center; }
+.encounter-page-body { padding-top: 16px; }
+.encounter-detail { display: flex; flex-direction: column; gap: 20px; }
+.encounter-block + .encounter-block, .encounter-block + .linked-grid { border-top: 1px solid var(--cp-color-win-3); padding-top: 16px; }
+.encounter-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.encounter-title h2 { margin: 0; font-size: 1.3rem; }
+.encounter-actions { display: flex; gap: 6px; margin-top: 8px; }
+.encounter-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0 0; }
+.encounter-facts dt { color: var(--cp-color-txt-4); }
+.encounter-facts dd { margin: 0; }
+.encounter-subhead { margin: 0 0 8px; font-size: .95rem; }
+.note + .note { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--cp-color-win-3); }
+.note-head > button { flex-shrink: 0; }
+.note-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+.note-text { max-width: 80ch; line-height: 1.5; }
+.note-text h4 { margin: 14px 0 4px; font-size: 1rem; }
+.note-text h5 { margin: 12px 0 2px; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--cp-color-txt-4); }
+.note-text p { margin: 4px 0; }
+.note-text ul { margin: 2px 0; padding-left: 1.2em; }
+.linked-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px 24px; }
+.linked-list { list-style: none; margin: 0; padding: 0; }
+.linked-item {
+  width: 100%; text-align: left; border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
+  display: grid; grid-template-columns: 1fr auto; column-gap: 12px; padding: 8px 6px; border-radius: 6px;
+}
+.linked-item:hover { background: var(--cp-color-win-2); }
+.linked-list li + li { border-top: 1px solid var(--cp-color-win-2); }
+.linked-title { font-weight: 500; }
+.linked-detail { grid-column: 1; color: var(--cp-color-txt-4); font-size: .85rem; }
+.linked-date { grid-column: 2; grid-row: 1; color: var(--cp-color-txt-4); font-size: .85rem; white-space: nowrap; }
+
+/* In the timeline sidebar: narrower, so stack and tighten. */
+.encounter-detail--compact { gap: 14px; font-size: .9rem; }
+.encounter-detail--compact .encounter-title h2 { font-size: 1.05rem; }
+.encounter-detail--compact .encounter-facts { grid-template-columns: 1fr; gap: 0; }
+.encounter-detail--compact .encounter-facts dd { margin-bottom: 6px; }
+.encounter-detail--compact .linked-item { grid-template-columns: 1fr; }
+.encounter-detail--compact .linked-date { grid-column: 1; grid-row: auto; }
+.encounter-detail--compact .note-text h4 { font-size: .95rem; }
+
+.setting-inline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.setting-inline .muted-label { margin-left: 12px; }
+
+/* Record search ---------------------------------------------------------- */
+.record-search { display: flex; flex-direction: column; gap: 10px; }
+.search-input {
+  width: 100%; box-sizing: border-box; padding: 9px 14px; font: inherit; font-size: 1rem;
+  border: 1px solid var(--cp-color-win-3); border-radius: 8px; background: var(--cp-color-win); color: var(--cp-color-txt);
+}
+.search-input:focus { outline: none; border-color: var(--cp-color-blue); }
+.search-hint { margin: 0; font-size: .85rem; }
+.search-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  border: 1px solid var(--cp-color-win-3); background: none; color: var(--cp-color-txt-3); font: inherit; font-size: .8rem;
+  padding: 3px 10px; border-radius: 999px; cursor: pointer;
+}
+.chip b { margin-left: 4px; color: var(--cp-color-txt); }
+.chip--on { background: var(--cp-color-win-3); color: var(--cp-color-txt); }
+.search-results { list-style: none; margin: 0; padding: 0; }
+.search-results li + li { border-top: 1px solid var(--cp-color-win-2); }
+.search-result {
+  width: 100%; text-align: left; border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
+  display: flex; flex-direction: column; gap: 3px; padding: 9px 8px; border-radius: 6px;
+}
+.search-result:hover { background: var(--cp-color-win-2); }
+.search-result-head { display: flex; align-items: center; gap: 8px; }
+.search-result-title { font-weight: 500; flex: 1; min-width: 0; }
+.search-result-date, .search-result-more { color: var(--cp-color-txt-4); font-size: .85rem; white-space: nowrap; }
+.search-result-snippet { font-size: .88rem; color: var(--cp-color-txt-3); overflow-wrap: anywhere; }
+.search-result-field { color: var(--cp-color-txt-5); }
+mark.hl { background: rgb(from var(--cp-color-yellow) r g b / .45); color: inherit; border-radius: 2px; padding: 0 1px; }
+
+.result-dialog { padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 16px; max-height: calc(90vh - 80px); overflow-y: auto; }
+.result-dialog-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.result-dialog-head h2 { margin: 0 0 6px; font-size: 1.15rem; }
+.result-dialog-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.result-fields { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.result-fields dt { font-size: .8rem; color: var(--cp-color-txt-4); }
+.result-fields dd { margin: 0; overflow-wrap: anywhere; }
+
+/* Cohort search on the patient list ---------------------------------------- */
+.cohort-search { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.cohort-search-status { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; font-size: .9rem; }
+.cohort-search-failed { color: var(--cp-color-red); display: inline-flex; align-items: center; gap: 6px; }
+.matches-btn {
+  border: 1px solid var(--cp-color-win-3); background: var(--cp-color-win-2); color: var(--cp-color-txt);
+  font: inherit; font-size: .85rem; padding: 1px 10px; border-radius: 999px; cursor: pointer;
+}
+.matches-btn:hover { border-color: var(--cp-color-blue); }
+.matches-dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.visit-cell { display: flex; flex-direction: column; line-height: 1.25; }
+.visit-cell-detail { font-size: .78rem; color: var(--cp-color-txt-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

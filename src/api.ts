@@ -160,10 +160,24 @@ export function groupByType(resources: FhirResource[]): Record<string, FhirResou
  */
 const SHARED_TYPES = new Set(['Practitioner', 'PractitionerRole', 'Organization', 'Location', 'Medication']);
 
+/**
+ * Resource types in the cohort: GET /resources, unioned with the
+ * `otherResources` a list call reports. The two can disagree (on
+ * smartcumulus.org, /resources lagged behind newly added MedicationRequest,
+ * MedicationAdministration and PractitionerRole), so trusting either alone can
+ * silently skip data.
+ */
 let typesCache: Promise<string[]> | null = null;
 function resourceTypes(): Promise<string[]> {
   if (!typesCache) {
-    typesCache = listResourceTypes();
+    typesCache = Promise.all([
+      listResourceTypes().catch(() => [] as string[]),
+      listResources('Patient', { limit: 1, fields: ['id'] }).then(r => r.otherResources ?? []).catch(() => [] as string[]),
+    ]).then(([a, b]) => {
+      const all = [...new Set(['Patient', ...a, ...b])];
+      if (all.length === 1) throw new Error('Could not list resource types for this cohort');
+      return all;
+    });
     typesCache.catch(() => { typesCache = null; });
   }
   return typesCache;

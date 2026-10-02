@@ -184,11 +184,11 @@ The default endpoint is `https://www.smartcumulus.org/synthetic/fhir/sim-ibd-pat
   and fails in the browser.
 - There is no per-patient "everything" call, so `src/api.ts` assembles a record from one
   `patients`-filtered query per resource type (four at a time), plus the Patient from the cohort
-  list. Practitioner, Organization, Location and Medication are cohort-wide (the filter does not
+  list. Practitioner, PractitionerRole, Organization, Location and Medication are cohort-wide (the filter does not
   apply to them), so they are fetched once and shared.
-- This cohort has no MedicationRequest or MedicationAdministration (those paths return 500), so
-  the IBD therapy row of the timeline and the Medications section are empty. Medication history
-  is still in the clinical notes and searchable.
+- `GET /resources` can lag behind the data: after MedicationRequest, MedicationAdministration
+  and PractitionerRole were added, it still listed the old 17 types while list calls'
+  `otherResources` included the new ones. `src/api.ts` uses the union of both.
 - `birthDate` is null for every patient, so Birth date and Age show a dash.
 - Medication orders (in cohorts that have them) reference a `Medication` with no display text;
   `src/api.ts` copies the medication's code onto each order so the library can name it.

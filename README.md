@@ -160,16 +160,28 @@ server-side index instead.
 
 ## API notes
 
-- CORS allows any origin, but the preflight response does not allow the `Content-Type`
-  header, so `src/api.ts` sends JSON bodies without one (a simple request, no preflight).
-- `POST /patient/{id}` returns `{ fhir: { [resourceType]: [...] } }` but its `Patient` array
-  is empty, so the app takes the Patient resource from the cached cohort list.
-- Medication orders reference a `Medication` resource with no display text; `src/api.ts` copies
-  the medication's code onto each order so the library can name it.
-- The `patients` body filter is ignored on `/patient/`; it works for other resource types.
-- Requests fail intermittently with no CORS headers (seen as "Failed to fetch"); `src/api.ts`
-  retries network errors, 429 and 5xx up to 3 times with backoff.
-- `POST /patient/count` currently returns 502; use `pagination.total` from a list call instead.
+The default endpoint is `https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients`
+(OpenAPI docs at https://www.smartcumulus.org/synthetic/docs).
+
+- Requests must send `Content-Type: application/json`; without it the server ignores the body,
+  so `patients` and `fields` filters silently return the whole cohort.
+- Paths take no trailing slash (`/condition?offset=0&limit=100`); a trailing slash redirects
+  and fails in the browser.
+- There is no per-patient "everything" call, so `src/api.ts` assembles a record from one
+  `patients`-filtered query per resource type (four at a time), plus the Patient from the cohort
+  list. Practitioner, Organization, Location and Medication are cohort-wide (the filter does not
+  apply to them), so they are fetched once and shared.
+- This cohort has no MedicationRequest or MedicationAdministration (those paths return 500), so
+  the IBD therapy row of the timeline and the Medications section are empty. Medication history
+  is still in the clinical notes and searchable.
+- `birthDate` is null for every patient, so Birth date and Age show a dash.
+- Medication orders (in cohorts that have them) reference a `Medication` with no display text;
+  `src/api.ts` copies the medication's code onto each order so the library can name it.
+- `src/api.ts` retries network errors, 429 and 5xx up to 3 times with backoff.
+
+The app was first built against an AWS API Gateway deployment of the same service, which needed
+the opposite `Content-Type` handling (its CORS preflight rejected the header) and offered
+`POST /patient/{id}`; that endpoint now returns 403.
 
 ## Known library quirks
 

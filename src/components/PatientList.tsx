@@ -189,8 +189,11 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
             },
           }] : []),
           { propName: 'gender', label: 'Sex', dataType: 'string', sortProp: 'gender' },
-          { propName: 'birthDate', label: 'Birth date', dataType: 'string', sortProp: 'birthDate' },
-          { propName: 'age', label: 'Age', dataType: 'number', sortProp: 'age' },
+          // Some cohorts (e.g. smartcumulus.org) omit birth dates, so both can be empty.
+          { propName: 'birthDate', label: 'Birth date', dataType: 'string', sortProp: 'birthDate',
+            renderCell: (r: PatientRow) => r.birthDate || <span className="muted">—</span> },
+          { propName: 'age', label: 'Age', dataType: 'number', sortProp: 'age',
+            renderCell: (r: PatientRow) => (r.age ?? <span className="muted">—</span>) },
           { propName: 'mrn', label: 'MRN', dataType: 'string', sortProp: 'mrn' },
           { propName: 'location', label: 'Location', dataType: 'string', sortProp: 'location' },
           { propName: 'lastVisit', label: 'Last visit', dataType: 'string', sortProp: 'lastVisit',

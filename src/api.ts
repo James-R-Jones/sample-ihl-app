@@ -2,10 +2,12 @@
  * Client for the cohort API described at
  * https://github.com/smart-on-fhir/fhir-rest-api#usage
  *
- * Every data call is a POST with a JSON body. List calls return
+ * Every data call is a POST with a JSON body, to paths without a trailing
+ * slash (e.g. /condition?offset=0&limit=100). List calls return
  *   { fhir: Resource[], pagination: { total, offset, limit, ... }, otherResources }
- * and the per-patient call returns
- *   { fhir: { [resourceType]: Resource[] } }
+ * There is no per-patient "everything" call, so a patient's record is
+ * assembled from one filtered query per resource type (see
+ * fetchPatientResources).
  */
 import type { FhirResource } from 'clinical-primitives';
 import type { Patient } from 'fhir/r4';
@@ -60,12 +62,11 @@ async function fetchWithRetry(url: string, init: RequestInit): Promise<Response>
 }
 
 async function post<T>(path: string, body: object, signal?: AbortSignal): Promise<T> {
-  // No Content-Type header on purpose: the API's CORS preflight (OPTIONS)
-  // response does not allow it, so a JSON content type makes the browser block
-  // the request. Sent as text/plain this is a "simple" request with no
-  // preflight, and the API still parses the JSON body.
+  // The JSON content type is required: without it the server ignores the
+  // body, so `patients` and `fields` filters silently do nothing.
   const res = await fetchWithRetry(`${FHIR_API_BASE}${path}`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     signal,
   });
@@ -91,7 +92,7 @@ export function listResources<T = FhirResource>(
   if (patients?.length) body.patients = patients;
   if (fields?.length) body.fields = fields;
   const qs = new URLSearchParams({ offset: String(offset), limit: String(limit) });
-  return post<ListResponse<T>>(`/${resourceType.toLowerCase()}/?${qs}`, body, signal);
+  return post<ListResponse<T>>(`/${resourceType.toLowerCase()}?${qs}`, body, signal);
 }
 
 /** Pages through a resource type until every record has been fetched. */
@@ -151,23 +152,68 @@ export function groupByType(resources: FhirResource[]): Record<string, FhirResou
   return out;
 }
 
-async function fetchPatientResources(patientId: string): Promise<FhirResource[]> {
-  const res = await post<{ fhir: Record<string, FhirResource[]> | FhirResource[] }>(
-    `/patient/${encodeURIComponent(patientId)}`,
-    {},
-  );
-  const groups = Array.isArray(res.fhir) ? [res.fhir] : Object.values(res.fhir ?? {});
-  const resources = groups.flat().filter((r): r is FhirResource => !!r?.resourceType);
+/**
+ * Resource types that are shared across the cohort rather than belonging to
+ * one patient: the `patients` filter does not apply to them, so they are
+ * fetched once and included in every patient's record (notes, encounters and
+ * orders reference them).
+ */
+const SHARED_TYPES = new Set(['Practitioner', 'PractitionerRole', 'Organization', 'Location', 'Medication']);
 
-  // Guarantee exactly one Patient so resourcesToPatientDataSet() is happy.
-  const others = resolveMedicationReferences(resources.filter(r => r.resourceType !== 'Patient'));
-  let patient = resources.find(r => r.resourceType === 'Patient' && r.id === patientId);
-  if (!patient) {
-    const all = await listAllPatients();
-    patient = all.find(p => p.id === patientId) as FhirResource | undefined;
+let typesCache: Promise<string[]> | null = null;
+function resourceTypes(): Promise<string[]> {
+  if (!typesCache) {
+    typesCache = listResourceTypes();
+    typesCache.catch(() => { typesCache = null; });
   }
+  return typesCache;
+}
+
+let sharedCache: Promise<FhirResource[]> | null = null;
+function sharedResources(types: string[]): Promise<FhirResource[]> {
+  if (!sharedCache) {
+    sharedCache = Promise.all(types.filter(t => SHARED_TYPES.has(t))
+      .map(t => listAllResources(t, { limit: 1000 }))).then(lists => lists.flat());
+    sharedCache.catch(() => { sharedCache = null; });
+  }
+  return sharedCache;
+}
+
+/** Runs `fn` over `items` with at most `n` in flight. */
+async function mapLimit<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): Promise<PromiseSettledResult<R>[]> {
+  const out: PromiseSettledResult<R>[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    for (let i = next++; i < items.length; i = next++) {
+      try { out[i] = { status: 'fulfilled', value: await fn(items[i]) }; }
+      catch (reason) { out[i] = { status: 'rejected', reason }; }
+    }
+  }));
+  return out;
+}
+
+/**
+ * One patient's record: every patient-scoped resource type queried with
+ * `patients: [id]` (four types at a time), plus the cohort's shared types and
+ * the Patient itself. A type that errors is skipped with a console warning
+ * rather than failing the whole record.
+ */
+async function fetchPatientResources(patientId: string): Promise<FhirResource[]> {
+  const types = await resourceTypes();
+  const perPatient = types.filter(t => t !== 'Patient' && !SHARED_TYPES.has(t));
+  const [settled, shared, patients] = await Promise.all([
+    mapLimit(perPatient, 4, t => listAllResources(t, { patients: [patientId], limit: 1000 })),
+    sharedResources(types),
+    listAllPatients(),
+  ]);
+  const resources: FhirResource[] = [];
+  settled.forEach((r, i) => {
+    if (r.status === 'fulfilled') resources.push(...r.value);
+    else console.warn(`Skipping ${perPatient[i]} for patient ${patientId}:`, r.reason);
+  });
+  const patient = patients.find(p => p.id === patientId) as FhirResource | undefined;
   if (!patient) throw new Error(`Patient ${patientId} not found`);
-  return [patient, ...others];
+  return [patient, ...resolveMedicationReferences([...resources, ...shared])];
 }
 
 /**

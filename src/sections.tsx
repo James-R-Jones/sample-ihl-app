@@ -15,6 +15,7 @@ import { LabCharts } from './components/LabCharts';
 import { LabPicker } from './components/LabPicker';
 import { PatientSummary } from './components/PatientSummary';
 import { RecordSearch } from './components/RecordSearch';
+import { TherapyOutcomes } from './components/TherapyOutcomes';
 import { IBD_CLASSES, OTHER_MEDS, TreatmentTimeline } from './components/TreatmentTimeline';
 import type { ObservationFilter, SectionConfigs, SectionId } from './settings';
 import type { SearchIntent } from './routes';
@@ -166,6 +167,72 @@ export const SECTIONS: Registry = {
           <label className="setting-row">
             <CheckBox checked={config.endoscopy} onChange={e => set({ endoscopy: e.currentTarget.checked })} />
             Endoscopy
+          </label>
+        </fieldset>
+      </>
+    ),
+  },
+
+  outcomes: {
+    title: 'Therapy outcomes in similar children',
+    render: (config, ctx) => (
+      // Remount when the patient or the defaults change, so the stratifiers
+      // start again from the patient's values.
+      <TherapyOutcomes
+        key={`${ctx.patient.id}:${JSON.stringify(config)}`}
+        patient={ctx.patient}
+        resources={ctx.resources}
+        config={config}
+      />
+    ),
+    settings: (config, set) => (
+      <>
+        <fieldset className="setting-group">
+          <legend className="muted-label">Match on by default</legend>
+          <div className="lab-picker">
+            {([
+              ['age', 'Age at diagnosis'], ['gender', 'Gender'], ['subtype', 'IBD subtype'],
+              ['severity', 'Severity at presentation'], ['perianal', "Perianal disease (Crohn's only)"],
+            ] as const).map(([k, label]) => (
+              <label key={k} className="setting-row">
+                <CheckBox checked={config.use[k]} onChange={e => set({ use: { ...config.use, [k]: e.currentTarget.checked } })} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="setting-group">
+          <legend className="muted-label">When an exact match is too small</legend>
+          <label className="setting-row">
+            <CheckBox checked={config.autoWiden} onChange={e => set({ autoWiden: e.currentTarget.checked })} />
+            Widen automatically until two therapies can be compared
+          </label>
+        </fieldset>
+        <fieldset className="setting-group">
+          <legend className="muted-label">Default age window</legend>
+          <RadioButton
+            value={config.ageWindow}
+            onChange={v => set({ ageWindow: Number(v) })}
+            options={[0, 1, 2, 3, 5].map(w => ({ value: w, label: w === 0 ? 'Exact' : `±${w} y` }))}
+          />
+        </fieldset>
+        <fieldset className="setting-group">
+          <legend className="muted-label">Default outcome window</legend>
+          <RadioButton
+            value={config.horizon}
+            onChange={v => set({ horizon: Number(v) as typeof config.horizon })}
+            options={[1, 2, 3, 5].map(h => ({ value: h, label: `${h} yr` }))}
+          />
+        </fieldset>
+        <fieldset className="setting-group">
+          <legend className="muted-label">Charts</legend>
+          <label className="setting-row">
+            <CheckBox checked={config.showCurves} onChange={e => set({ showCurves: e.currentTarget.checked })} />
+            Share still event-free by year
+          </label>
+          <label className="setting-row">
+            <CheckBox checked={config.showRanges} onChange={e => set({ showRanges: e.currentTarget.checked })} />
+            Average event-free years with ranges
           </label>
         </fieldset>
       </>

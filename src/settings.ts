@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
  */
 
 export const SECTION_IDS = [
-  'summary', 'search', 'timeline', 'labTrends', 'labCharts',
+  'summary', 'search', 'timeline', 'outcomes', 'labTrends', 'labCharts',
   'conditions', 'medications', 'observations', 'immunizations',
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
@@ -44,6 +44,18 @@ export interface SectionConfigs {
     /** One row per encounter class, or one row per visit type. */
     encounterGroupBy: 'class' | 'type';
   };
+  outcomes: {
+    /** Stratifiers matched on by default; each can be switched in the section. */
+    use: { age: boolean; gender: boolean; subtype: boolean; severity: boolean; perianal: boolean };
+    /** Years either side of the patient's age at diagnosis. */
+    ageWindow: number;
+    /** Outcome window in years. */
+    horizon: 1 | 2 | 3 | 5;
+    showCurves: boolean;
+    showRanges: boolean;
+    /** On opening, widen until two therapies can be compared. */
+    autoWiden: boolean;
+  };
   labTrends: { labs: string[] };
   labCharts: { labs: string[]; height: number };
   conditions: Record<string, never>;
@@ -67,6 +79,7 @@ export const DEFAULT_SETTINGS: Settings = {
     { id: 'summary',       visible: true,  wide: true },
     { id: 'search',        visible: true,  wide: true },
     { id: 'timeline',      visible: true,  wide: true },
+    { id: 'outcomes',      visible: true,  wide: true },
     { id: 'labTrends',     visible: true,  wide: false },
     { id: 'conditions',    visible: true,  wide: false },
     { id: 'labCharts',     visible: true,  wide: true },
@@ -86,6 +99,14 @@ export const DEFAULT_SETTINGS: Settings = {
       // Every class; rows only appear for classes this patient has.
       encounterClasses: ['AMB', 'EMER', 'IMP', 'OBSENC', 'VR', 'HH', 'OTHER'],
       encounterGroupBy: 'class',
+    },
+    outcomes: {
+      use: { age: true, gender: true, subtype: true, severity: true, perianal: true },
+      ageWindow: 1,
+      horizon: 2,
+      showCurves: true,
+      showRanges: true,
+      autoWiden: true,
     },
     labTrends: { labs: IBD_LABS },
     labCharts: { labs: IBD_LABS, height: 160 },

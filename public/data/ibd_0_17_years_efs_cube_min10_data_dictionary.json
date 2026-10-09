@@ -1,0 +1,67 @@
+{
+    "fields": [
+        {
+            "name": "cnt",
+            "display": "Count",
+            "description": "A count of distinct patients matching the row's dimension values",
+            "details": "COUNT(DISTINCT research_id) with true, unrounded values. Cells with fewer than 10 patients are removed from the file, so every value is at least 10 (range 10 to 10,000). A missing row means the true count was 1 to 9 or the combination does not occur. Rows are not additive: a parent count can exceed the sum of its kept children. An all-blank row holds the cohort total of 10,000.",
+            "type": "integer"
+        },
+        {
+            "name": "event_free_survival_years",
+            "display": "Event-free survival (years)",
+            "description": "Whole years from diagnosis to the first event or to censoring",
+            "details": "Floor of days divided by 365, capped at 5 and shown as >=5 (6 levels: 0, 1, 2, 3, 4, >=5). Patients: 0 (5,311), 1 (2,243), 2 (1,246), 3 (589), 4 (323), >=5 (288). An empty field means the dimension is rolled up in that row, never missing data. Every year level has at least 10 patients, so each has a one-dimension row.",
+            "type": "string"
+        },
+        {
+            "name": "efs_status",
+            "display": "Event-free survival status",
+            "description": "What ended follow-up. Any value other than Censored is an event",
+            "details": "Steroid rescue: first corticosteroid use after induction. Escalation or surgery: first escalation to a different drug class, or surgery. Censored: follow-up ended with no event. Induction steroids are not events. Values: Steroid rescue, Escalation or surgery, Censored.",
+            "type": "string"
+        },
+        {
+            "name": "age_at_initial_diagnosis_years",
+            "display": "Age at diagnosis (years)",
+            "description": "Whole years of age at IBD diagnosis",
+            "details": "Floor of age in days divided by 365. Values 0 to 17. Ages 0 to 5 are the very-early-onset cohort (593 patients) and ages 6 to 17 the pediatric cohort (9,407 patients). Cohort is not a separate column. Counts rise from 47 patients at age 0 to about 1,280 at ages 15 and 16, following the pediatric module's weights for ages 6 to 17 extended downward by assumption.",
+            "type": "string"
+        },
+        {
+            "name": "firstline_therapy",
+            "display": "First-line therapy",
+            "description": "The first drug class started after diagnosis",
+            "details": "Corticosteroid is not an option; steroid use is modeled as an event. Values: AMINOSALICYLATE, IMMUNOMODULATOR, ANTI_TNF, ANTI_INTERLEUKIN, ANTI_INTEGRIN, JAK_INHIBITOR. Anti-interleukin, anti-integrin and JAK inhibitor starts are off-label and rare (JAK inhibitor has 83 patients, so most of its cells are suppressed).",
+            "type": "string"
+        },
+        {
+            "name": "gender",
+            "display": "Gender",
+            "description": "Recorded gender",
+            "details": "Values: male, female.",
+            "type": "string"
+        },
+        {
+            "name": "ibd_subtype",
+            "display": "IBD subtype",
+            "description": "IBD subtype at diagnosis",
+            "details": "Values: Crohn's Disease, Ulcerative Colitis, IBD-Unclassified.",
+            "type": "string"
+        },
+        {
+            "name": "severity",
+            "display": "Severity",
+            "description": "Disease severity at presentation",
+            "details": "Values: Mild, Moderate, Severe. For pediatric Crohn's disease, perianal disease, stricturing or penetrating behavior, or growth failure sets severity to Severe; for pediatric colitis it follows PUCAI at consult.",
+            "type": "string"
+        },
+        {
+            "name": "perianal_disease",
+            "display": "Perianal disease",
+            "description": "Perianal disease at diagnosis",
+            "details": "Assessed for Crohn's disease only. Not Applicable is a structural value for Ulcerative Colitis and IBD-Unclassified, not missing data. Values: Yes (614), No (4,635), Not Applicable (4,751). Pediatric Crohn's uses the module rate of 12%. Very-early-onset Crohn's uses an assumed 20%. Descriptive only in the very-early-onset cohort.",
+            "type": "string"
+        }
+    ]
+}

@@ -65,6 +65,7 @@ bar brings hidden sections back and sets the theme. Settings are saved in localS
 | Patient | `PatientSummary` (app) | none |
 | Search this record | `RecordSearch` (app) with library `Dialog`, `SourceDialog` | notes-only matches, resource types to leave out, results per page |
 | Treatment timeline | `TimelineChart` with `MedicationsTimeline`, `ObservationsTimeline`, `BarChartTimeline` | lab rows; drug classes shown (incl. non-IBD); all or active courses; encounter classes; rows by class or visit type; endoscopy |
+| Therapy outcomes in similar children | `TherapyOutcomes` (app) with library `Chart`, `CheckBox`, `RadioButton`, `Badge`, `Alert`, `Button` | stratifiers matched by default, auto-widen, default age and outcome windows, which charts |
 | IBD lab trends | `LabTrendPanel` | labs |
 | IBD lab charts | `ObservationChart` per lab | labs, chart height |
 | Conditions | `ConditionList` | none |
@@ -181,8 +182,48 @@ server-side index instead.
   the library: all courses or active only, per drug class, with non-IBD medications off by default.
 - Encounters can be filtered by class (ambulatory, emergency, inpatient, observation, virtual,
   home health, other) or shown all at once, and grouped one row per class or per visit type.
-  Defaults are emergency and inpatient, by class.
 - Clicking any bar or point opens its details in the timeline sidebar.
+
+### Therapy outcomes
+
+Compares event-free survival on each first-line therapy (5-ASA, immunomodulator, anti-TNF,
+anti-interleukin, anti-integrin, JAK inhibitor) among children like the current patient. It
+brings the IBD Therapy Outcome Picker into the app. An event is steroid rescue, escalation to
+another drug class, or surgery.
+
+- **Data.** A synthetic cube of 10,000 children aged 0 to 17 at diagnosis
+  (`public/data/ibd_0_17_years_efs_cube_min10.csv`, dictionary alongside). Cells under 10
+  patients are removed. It is loaded once, on first use, by `src/outcomes/cube.ts`. To read it
+  from an API later, replace `loadCube()` there with a fetch that yields the same rows (the study
+  API's `GET /study/{study}/cube` returns `{columns, rows}`) and pass them to `cubeFromRows`.
+- **Method** (`src/outcomes/engine.ts`, ported unchanged from the picker and checked to give
+  identical results for all 252 profiles). An actuarial (Cutler-Ederer) life table by whole year,
+  then average event-free years as the restricted mean over a 1, 2, 3 or 5 year window. Patients
+  hidden by suppression are placed three ways (event/censor ratio, all events, all censored) to
+  give a middle estimate and a range. A therapy is ranked only with at least 30 patients and 30%
+  of them visible in the year cells.
+- **Stratifiers** start at the patient's own values (`src/outcomes/profile.ts`), each with its
+  source shown:
+
+  | Stratifier | Where it comes from |
+  |---|---|
+  | Age at diagnosis | Birth date to the earliest IBD Condition, in whole years (days / 365). Needs a birth date. |
+  | Gender | `Patient.gender` |
+  | IBD subtype | Earliest of Crohn's (SNOMED 34000006, ICD K50), UC (64766004, K51) or IBD-U (K52.3) |
+  | Severity at presentation | Notes up to 30 days after diagnosis. Colitis: first PUCAI (under 35 mild, 35 to 64 moderate, 65 and over severe). Crohn's: severe with perianal disease, Paris B2/B3 behavior or growth failure (R62.5x); otherwise PCDAI if present (under 30 mild, 30 to 39 moderate, 40 and over severe), else not known. |
+  | Perianal disease | Crohn's only: the Paris "p" modifier on the first documented Crohn behavior, or a perianal fistula or abscess diagnosis |
+
+  Each stratifier can be switched off or set to another value; values not in the record can be
+  picked by hand. The age window runs from exact to ±5 years.
+- **Widening.** Exact matches are usually too small to compare therapies (no test patient has
+  two rankable therapies on all five stratifiers). On opening, the section widens as the picker
+  did, in roughly this order: the age window, then gender and perianal disease, then age altogether, and subtype
+  and severity last. A note says what changed. **Widen to compare** does the same on demand, and
+  **Reset to patient** returns to the opening view. Auto-widening can be turned off in the gear.
+- The patient's own first-line therapy (earliest non-steroid IBD prescription) is tagged
+  **this patient** in the table.
+- The section starts from the gear's defaults each time a patient opens; changes made in the
+  section itself are not saved.
 
 ## API notes
 

@@ -37,7 +37,8 @@ The **Data source** dropdown on the patient list switches between cohort endpoin
 
 | Name | URL | Style |
 |---|---|---|
-| SMART Cumulus · Synthetic IBD (default) | `https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients` | FastAPI |
+| SMART Cumulus · Synthetic IBD v2 (default) | `https://www.smartcumulus.org/synthetic/fhir/cumulus_sim_ibd_v2` | FastAPI |
+| SMART Cumulus · Synthetic IBD | `https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients` | FastAPI |
 | AWS test · Synthetic IBD | `https://04sdlmjrsh.execute-api.us-east-1.amazonaws.com/test/fhir/sim-ibd-patients` | AWS (currently returns 403) |
 
 **Add…** saves another endpoint in this browser after testing it (`GET /resources` and a Patient
@@ -210,8 +211,11 @@ another drug class, or surgery.
   | Age at diagnosis | Birth date to the earliest IBD Condition, in whole years (days / 365). Needs a birth date. |
   | Gender | `Patient.gender` |
   | IBD subtype | Earliest of Crohn's (SNOMED 34000006, ICD K50), UC (64766004, K51) or IBD-U (K52.3) |
-  | Severity at presentation | Notes up to 30 days after diagnosis. Colitis: first PUCAI (under 35 mild, 35 to 64 moderate, 65 and over severe). Crohn's: severe with perianal disease, Paris B2/B3 behavior or growth failure (R62.5x); otherwise PCDAI if present (under 30 mild, 30 to 39 moderate, 40 and over severe), else not known. |
-  | Perianal disease | Crohn's only: the Paris "p" modifier on the first documented Crohn behavior, or a perianal fistula or abscess diagnosis |
+  | Severity at presentation | Notes up to 30 days after diagnosis. Colitis: first PUCAI (under 35 mild, 35 to 64 moderate, 65 and over severe). Crohn's: severe with perianal disease, Paris B2/B3 behavior or a growth failure diagnosis (R62.5x); otherwise PCDAI if present (under 30 mild, 30 to 39 moderate, 40 and over severe), else not known. |
+  | Perianal disease | Crohn's only: a perianal fistula or abscess diagnosis (K60.3-K60.5, K61, including subcodes such as K60.321), or the Paris "p" modifier on the first documented behavior ("Crohn behavior: B1" or "Paris L3 B1") |
+
+  Severity, perianal disease and growth failure count only up to 30 days after diagnosis, since
+  the cube describes the disease at presentation.
 
   Each stratifier can be switched off or set to another value; values not in the record can be
   picked by hand. The age window runs from exact to ±5 years.
@@ -227,8 +231,9 @@ another drug class, or surgery.
 
 ## API notes
 
-The default endpoint is `https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients`
-(OpenAPI docs at https://www.smartcumulus.org/synthetic/docs).
+The default endpoint is `https://www.smartcumulus.org/synthetic/fhir/cumulus_sim_ibd_v2`
+(OpenAPI docs at https://www.smartcumulus.org/synthetic/docs). A browser that already chose a
+data source keeps it until it switches; links with `?endpoint=` open on the source they name.
 
 - Requests must send `Content-Type: application/json`; without it the server ignores the body,
   so `patients` and `fields` filters silently return the whole cohort.

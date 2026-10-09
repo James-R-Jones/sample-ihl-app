@@ -38,6 +38,10 @@ const LABELS = {
 const STRAT_TITLES: Record<Key, string> = {
   age: 'Age at diagnosis', gender: 'Gender', subtype: 'IBD subtype', severity: 'Severity at presentation', perianal: 'Perianal disease',
 };
+/** Stratifier names inside a sentence. */
+const STRAT_PHRASE: Record<Key, string> = {
+  age: 'age', gender: 'gender', subtype: 'IBD subtype', severity: 'severity', perianal: 'perianal disease',
+};
 const WINDOWS = [0, 1, 2, 3, 5];
 const HORIZONS = [1, 2, 3, 5];
 
@@ -104,7 +108,7 @@ export function TherapyOutcomes({ patient, resources, config }: {
     const join = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0]);
     const stopped = [
       ...(sel.age != null && w.sel.ageWindow == null ? ['age'] : []),
-      ...w.dropped.map(k => STRAT_TITLES[k].toLowerCase()),
+      ...w.dropped.map(k => STRAT_PHRASE[k]),
     ];
     const changes = [
       ...(w.sel.ageWindow != null && sel.ageWindow !== w.sel.ageWindow ? [`widened age to ±${w.sel.ageWindow} years`] : []),

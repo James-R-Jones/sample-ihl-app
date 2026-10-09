@@ -12,8 +12,10 @@
  *   penetrating behavior (Paris B2/B3), or growth failure; otherwise the first
  *   PCDAI if one is documented (under 30 mild, 30 to 39 moderate, 40 and over
  *   severe), else unknown.
- * - Perianal disease (Crohn's only): the Paris "p" modifier on the first
- *   documented Crohn behavior, or a perianal fistula or abscess diagnosis.
+ * - Perianal disease (Crohn's only): a perianal fistula or abscess diagnosis,
+ *   or the Paris "p" modifier on the first documented Crohn behavior.
+ *
+ * Everything except gender counts only up to 30 days after diagnosis.
  *
  * None of these are coded as structured data in the synthetic cohort apart
  * from gender, birth date and the diagnosis, so severity and perianal disease
@@ -49,7 +51,8 @@ const SUBTYPES: { re: RegExp; subtype: number }[] = [
 ];
 
 const GROWTH_FAILURE = /^(R62\.5\d?|R62\.0|432250007|36440009|54840006)$/;
-const PERIANAL_DX = /^(K60\.[345]|K61\.[0-4]?|K50\.\d13|K50\.\d14)$/;
+// Anal and perianal fistula or abscess, including the 2024 ICD-10-CM subcodes (K60.321 etc.).
+const PERIANAL_DX = /^(K60\.[345]\d*|K61\.[0-4]\d*|K50\.\d1[34])$/;
 
 const day = (s?: string) => s?.slice(0, 10);
 const when = (c: Condition) => c.onsetDateTime ?? c.onsetPeriod?.start ?? c.recordedDate;
@@ -99,8 +102,9 @@ export function deriveProfile(patient: Patient, resources: Record<string, unknow
     .filter((x): x is { c: Condition; date: string; sub: number } => x.sub != null && !!x.date)
     .sort((a, b) => a.date.localeCompare(b.date));
   const first = dx[0];
-  // Severity scores and Paris classification at presentation: notes up to
-  // PRESENTATION_DAYS after diagnosis (later scores reflect treatment).
+  // Severity scores, Paris classification, perianal disease and growth failure
+  // at presentation: up to PRESENTATION_DAYS after diagnosis (later findings
+  // reflect the disease course, not its presentation).
   const cutoff = first ? new Date(Date.parse(first.date) + PRESENTATION_DAYS * 864e5).toISOString() : '';
   const notes = first ? allNotes.filter(n => (n.date ?? '') <= cutoff) : [];
   const dxName = first ? (first.c.code?.text ?? first.c.code?.coding?.[0]?.display ?? 'IBD') : '';
@@ -125,8 +129,11 @@ export function deriveProfile(patient: Patient, resources: Record<string, unknow
   const gender: Derived<number> = { value: g, source: g == null ? `Recorded as ${patient.gender ?? 'unknown'}` : 'Patient record' };
 
   // Perianal disease and Crohn's severity
-  const behavior = firstMatch(notes, /Crohn behavior:\s*(B[123](?:B3)?)(p?)/i);
-  const perianalDx = conditions.find(c => codes(c).some(code => PERIANAL_DX.test(code)) || /perianal (fistula|abscess|disease)/i.test(c.code?.text ?? ''));
+  // "Crohn behavior: B1" (v1 notes) or "Paris L3 B1" / "Paris L2 L4a B2p" (v2 notes).
+  const behavior = firstMatch(notes, /(?:Crohn behavior:\s*|Paris\s+(?:L[0-4][ab]?\s+)*)(B[123](?:B3)?)(p?)\b/i);
+  // Coded findings count only up to the same cutoff: the cube's values are at diagnosis.
+  const atDx = (c: Condition) => !!first && (when(c) ?? '') <= cutoff;
+  const perianalDx = conditions.find(c => atDx(c) && (codes(c).some(code => PERIANAL_DX.test(code)) || /perianal (fistula|abscess|disease)/i.test(c.code?.text ?? '')));
   let perianal: Derived<number>;
   if (first?.sub !== 0) perianal = { value: null, source: 'Assessed for Crohn\'s disease only' };
   else if (perianalDx) perianal = { value: 0, source: `${perianalDx.code?.text ?? 'Perianal'} diagnosis, ${fmt(when(perianalDx))}` };
@@ -138,7 +145,7 @@ export function deriveProfile(patient: Patient, resources: Record<string, unknow
   let severity: Derived<number>;
   if (!first) severity = { value: null, source: 'No IBD diagnosis' };
   else if (first.sub === 0) {
-    const growth = conditions.find(c => codes(c).some(code => GROWTH_FAILURE.test(code)));
+    const growth = conditions.find(c => atDx(c) && codes(c).some(code => GROWTH_FAILURE.test(code)));
     const pcdai = firstMatch(notes, /PCDAI:?\s*(\d+(?:\.\d+)?)/i);
     if (perianal.value === 0) severity = { value: 2, source: 'Perianal disease sets Crohn\'s severity to severe' };
     else if (behavior && /B[23]/i.test(behavior.m[1])) severity = { value: 2, source: `Paris ${behavior.m[1]} (stricturing or penetrating) sets severity to severe` };

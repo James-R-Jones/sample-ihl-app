@@ -29,6 +29,14 @@ export const BUILTIN_ENDPOINTS: Endpoint[] = [
     id: 'env', label: 'Configured (.env)', url: fromEnv, jsonContentType: true, trailingSlash: false, builtin: true,
   }] : []),
   {
+    id: 'smartcumulus-ibd-v2',
+    label: 'SMART Cumulus · Synthetic IBD v2',
+    url: 'https://www.smartcumulus.org/synthetic/fhir/cumulus_sim_ibd_v2',
+    jsonContentType: true,
+    trailingSlash: false,
+    builtin: true,
+  },
+  {
     id: 'smartcumulus-ibd',
     label: 'SMART Cumulus · Synthetic IBD',
     url: 'https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients',
@@ -66,7 +74,9 @@ export function customEndpoints(): Endpoint[] {
 }
 
 export function allEndpoints(): Endpoint[] {
-  return [...BUILTIN_ENDPOINTS, ...customEndpoints()];
+  // A custom endpoint saved before its URL became a built-in is listed once, as the built-in.
+  const builtinUrls = new Set(BUILTIN_ENDPOINTS.map(e => e.url));
+  return [...BUILTIN_ENDPOINTS, ...customEndpoints().filter(e => !builtinUrls.has(e.url))];
 }
 
 export function saveCustomEndpoint(e: Omit<Endpoint, 'id' | 'builtin'>): Endpoint {

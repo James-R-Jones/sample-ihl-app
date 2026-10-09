@@ -38,6 +38,7 @@ The **Data source** dropdown on the patient list switches between cohort endpoin
 | Name | URL | Style |
 |---|---|---|
 | SMART Cumulus · Synthetic IBD v2 (default) | `https://www.smartcumulus.org/synthetic/fhir/cumulus_sim_ibd_v2` | FastAPI |
+| Cumulus dashboard (test) · Synthetic IBD v2 | `https://dashboard-test.smartcumulus.org/test/fhir/cumulus_sim_ibd_v2` | FastAPI |
 | SMART Cumulus · Synthetic IBD | `https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients` | FastAPI |
 | AWS test · Synthetic IBD | `https://04sdlmjrsh.execute-api.us-east-1.amazonaws.com/test/fhir/sim-ibd-patients` | AWS (currently returns 403) |
 
@@ -235,6 +236,17 @@ The default endpoint is `https://www.smartcumulus.org/synthetic/fhir/cumulus_sim
 (OpenAPI docs at https://www.smartcumulus.org/synthetic/docs). A browser that already chose a
 data source keeps it until it switches; links with `?endpoint=` open on the source they name.
 
+- Patient records load with one `POST {base}/patient-details` call, body `{"patient_id": "<id>"}`,
+  when the endpoint has it (both smartcumulus.org servers and the AWS test API do). It returns every resource type
+  keyed by lowercase name, including the Patient and the practitioners, locations and
+  medications the record references, in about a third of the time of the per-type calls. If an
+  endpoint answers 403, 404, 405 or 422, or returns an empty record, the app loads the record
+  one type at a time as before. The AWS test API leaves the Patient out of the response, so the
+  app takes it from the cohort's patient list.
+- The dashboard test server (`https://dashboard-test.smartcumulus.org/test/docs`) also lists
+  study/cube, full-text search (`/fhirfts`, `/notefts`) and MRN-to-research-ID endpoints. As of
+  October 2026 the study calls return 500 for study `ibd`, and the search and ID calls fail
+  without CORS headers, so the app does not use them yet.
 - Requests must send `Content-Type: application/json`; without it the server ignores the body,
   so `patients` and `fields` filters silently return the whole cohort.
 - Paths take no trailing slash (`/condition?offset=0&limit=100`); a trailing slash redirects

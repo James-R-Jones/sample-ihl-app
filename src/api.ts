@@ -207,12 +207,60 @@ async function mapLimit<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): 
 }
 
 /**
- * One patient's record: every patient-scoped resource type queried with
+ * Whether this endpoint has POST /patient-details (the whole record in one
+ * call, keyed by lowercase type). null until the first try on this page load.
+ */
+let detailsSupported: boolean | null = null;
+
+/**
+ * One patient's record from POST {base}/patient-details with {patient_id},
+ * or null when the endpoint does not offer it (or it failed this time), so
+ * the caller falls back to one call per resource type. The response holds
+ * the Patient and the shared resources the record references.
+ */
+async function fetchPatientDetails(patientId: string): Promise<FhirResource[] | null> {
+  if (detailsSupported === false) return null;
+  let res: Response;
+  try {
+    res = await fetchWithRetry(`${FHIR_API_BASE}/patient-details`, {
+      method: 'POST',
+      headers: ENDPOINT.jsonContentType ? { 'Content-Type': 'application/json' } : undefined,
+      body: JSON.stringify({ patient_id: patientId }),
+    });
+  } catch (e) {
+    console.warn('patient-details failed; loading by type instead:', e);
+    return null;
+  }
+  // Missing route (404/405), a different body shape (422) or a gateway that
+  // refuses it (403): this endpoint does not have it. Server errors may pass.
+  if ([403, 404, 405, 422].includes(res.status)) { detailsSupported = false; return null; }
+  if (!res.ok) { console.warn(`patient-details returned ${res.status}; loading by type instead`); return null; }
+  const body = await res.json().catch(() => null) as { fhir?: Record<string, unknown> } | null;
+  if (!body?.fhir || typeof body.fhir !== 'object' || Array.isArray(body.fhir)) { detailsSupported = false; return null; }
+  detailsSupported = true;
+  return Object.values(body.fhir).flatMap(v => (Array.isArray(v) ? v as FhirResource[] : []));
+}
+
+/**
+ * One patient's record. Uses /patient-details when the endpoint has it;
+ * otherwise every patient-scoped resource type is queried with
  * `patients: [id]` (four types at a time), plus the cohort's shared types and
  * the Patient itself. A type that errors is skipped with a console warning
  * rather than failing the whole record.
  */
 async function fetchPatientResources(patientId: string): Promise<FhirResource[]> {
+  const details = await fetchPatientDetails(patientId);
+  // An id the server does not recognize (or a body it ignored) comes back as
+  // empty lists; then load by type, which also reports a missing patient.
+  // Some servers (the AWS test API) leave the Patient out of an otherwise
+  // full record, so take it from the cohort list.
+  if (details?.length) {
+    const patient = details.find(r => r.resourceType === 'Patient' && r.id === patientId)
+      ?? (await listAllPatients()).find(p => p.id === patientId) as FhirResource | undefined;
+    if (patient) {
+      return [patient, ...resolveMedicationReferences(details.filter(r => !(r.resourceType === 'Patient' && r.id === patientId)))];
+    }
+  }
   const types = await resourceTypes();
   const perPatient = types.filter(t => t !== 'Patient' && !SHARED_TYPES.has(t));
   const [settled, shared, patients] = await Promise.all([

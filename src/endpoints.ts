@@ -37,6 +37,14 @@ export const BUILTIN_ENDPOINTS: Endpoint[] = [
     builtin: true,
   },
   {
+    id: 'dashboard-test-ibd-v2',
+    label: 'Cumulus dashboard (test) · Synthetic IBD v2',
+    url: 'https://dashboard-test.smartcumulus.org/test/fhir/cumulus_sim_ibd_v2',
+    jsonContentType: true,
+    trailingSlash: false,
+    builtin: true,
+  },
+  {
     id: 'smartcumulus-ibd',
     label: 'SMART Cumulus · Synthetic IBD',
     url: 'https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients',

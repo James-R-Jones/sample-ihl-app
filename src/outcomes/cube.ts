@@ -11,6 +11,7 @@
  * only has to produce the same Cube.
  */
 import { useEffect, useState } from 'react';
+import { BUNDLED_FILE, usePopulation, type Population } from './population';
 
 export const DIMENSIONS = {
   event_free_survival_years: ['0', '1', '2', '3', '4', '>=5'],
@@ -83,67 +84,87 @@ export function parseCsv(text: string): Record<string, string>[] {
 }
 
 /**
- * The cube source: the study API first, the CSV shipped with the app if the
- * API is unreachable or returns something unexpected. Both were checked to be
- * identical (31,373 rows, same values) on 2026-10-12.
+ * Loading a population's cube (population.ts). A study API population falls
+ * back to the bundled CSV when the API is unreachable, for the built-in
+ * choices only; a custom table that fails shows the error instead.
  *
- * GET {STUDY_API}/cube?tables=<table> returns
+ * GET {api}/cube?tables=<table> returns
  * {status: 'complete' | 'pending', cubes: [{name, count, columns: [{name}], rows: [[...]]}]};
  * 'pending' (HTTP 202) means poll again after Retry-After.
  */
-export const STUDY_API = 'https://www.smartcumulus.org/synthetic/study/ibd/cohort/cumulus_sim_ibd_v2_db';
-export const CUBE_TABLE = 'ibd_0_17_years_efs_cube_client_min10';
-export const CUBE_FILE = 'data/ibd_0_17_years_efs_cube_min10.csv';
+export const REQUIRED_COLUMNS = [...DIM_ORDER, 'cnt'];
 
-async function loadCubeFromApi(): Promise<Cube> {
-  const url = `${STUDY_API}/cube?tables=${encodeURIComponent(CUBE_TABLE)}`;
+async function loadCubeFromApi(api: string, table: string): Promise<Cube> {
+  const url = `${api}/cube?tables=${encodeURIComponent(table)}`;
   for (let attempt = 0; attempt < 10; attempt++) {
     const res = await fetch(url);
     if (res.status === 202) {
       await new Promise(r => setTimeout(r, 1000 * (Number(res.headers.get('Retry-After')) || 2)));
       continue;
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const detail = await res.json().then(j => j?.detail, () => null);
+      throw new Error(`HTTP ${res.status}${typeof detail === 'string' ? `: ${detail}` : ''}`);
+    }
     const body = await res.json() as { cubes?: { name: string; columns: { name: string }[]; rows: unknown[][] }[] };
-    const cube = body.cubes?.find(c => c.name === CUBE_TABLE) ?? body.cubes?.[0];
-    if (!cube?.rows?.length) throw new Error('no rows');
+    const cube = body.cubes?.find(c => c.name === table) ?? body.cubes?.[0];
+    if (!cube?.rows?.length) throw new Error('the table has no rows');
     const names = cube.columns.map(c => c.name);
+    const missing = REQUIRED_COLUMNS.filter(c => !names.includes(c));
+    if (missing.length) throw new Error(`${table} is not an event-free survival cube (no ${missing.join(', ')} column${missing.length > 1 ? 's' : ''})`);
     const rows = cube.rows.map(r => Object.fromEntries(names.map((n, i) => [n, r[i] as string | number | null])));
-    const built = cubeFromRows(rows, `Study API (${CUBE_TABLE}), synthetic IBD cohort ages 0 to 17, cells under 10 removed`);
+    const host = new URL(api).host;
+    const built = cubeFromRows(rows, `Study API at ${host}, ${api.split('/').pop()} ${table}, cells under 10 removed`);
     if (!built.total) throw new Error('no cohort total row');
     return built;
   }
   throw new Error('still pending after 10 tries');
 }
 
-async function loadCubeFromFile(): Promise<Cube> {
-  const url = `${import.meta.env.BASE_URL}${CUBE_FILE}`;
+async function loadCubeFromFile(file: string, note = ''): Promise<Cube> {
+  const url = `${import.meta.env.BASE_URL}${file}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Could not load ${CUBE_FILE} (HTTP ${res.status})`);
-  return cubeFromRows(parseCsv(await res.text()), 'Bundled copy of the synthetic IBD cohort cube, ages 0 to 17, cells under 10 removed (study API unavailable)');
+  if (!res.ok) throw new Error(`Could not load ${file} (HTTP ${res.status})`);
+  return cubeFromRows(parseCsv(await res.text()), `Copy of the synthetic IBD v2 cube bundled with the app, ages 0 to 17, cells under 10 removed${note}`);
 }
 
-async function loadCube(): Promise<Cube> {
+async function loadCube(p: Population): Promise<Cube> {
+  if (!p.api || !p.table) return loadCubeFromFile(p.file ?? BUNDLED_FILE);
   try {
-    return await loadCubeFromApi();
+    return await loadCubeFromApi(p.api, p.table);
   } catch (e) {
-    console.warn('Outcome cube: study API failed, using the bundled CSV:', e);
-    return loadCubeFromFile();
+    if (!p.builtin) throw e;
+    console.warn(`Outcome cube: ${p.label} failed, using the bundled CSV:`, e);
+    return loadCubeFromFile(BUNDLED_FILE, ` (${new URL(p.api).host} unavailable: ${(e as Error).message})`);
   }
 }
 
-let cached: Promise<Cube> | null = null;
+const cached = new Map<string, Promise<Cube>>();
 
+/** Loads (or tests) a population's cube, cached per population. */
+export function cubeFor(p: Population): Promise<Cube> {
+  const key = JSON.stringify([p.api, p.table, p.file]);
+  let c = cached.get(key);
+  if (!c) {
+    c = loadCube(p);
+    c.catch(() => cached.delete(key));
+    cached.set(key, c);
+  }
+  return c;
+}
+
+/** The selected population's cube. */
 export function useOutcomeCube() {
-  const [state, setState] = useState<{ cube?: Cube; error?: string }>({});
+  const pop = usePopulation();
+  const [state, setState] = useState<{ cube?: Cube; error?: string; population: Population }>({ population: pop });
   useEffect(() => {
     let live = true;
-    cached ??= loadCube();
-    cached.then(
-      cube => live && setState({ cube }),
-      e => { cached = null; if (live) setState({ error: String(e?.message ?? e) }); },
+    setState({ population: pop });
+    cubeFor(pop).then(
+      cube => live && setState({ cube, population: pop }),
+      e => live && setState({ error: String(e?.message ?? e), population: pop }),
     );
     return () => { live = false; };
-  }, []);
+  }, [pop]);
   return state;
 }

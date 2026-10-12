@@ -15,6 +15,7 @@ import { LabCharts } from './components/LabCharts';
 import { LabPicker } from './components/LabPicker';
 import { PatientSummary } from './components/PatientSummary';
 import { RecordSearch } from './components/RecordSearch';
+import { PopulationPicker } from './components/PopulationPicker';
 import { TherapyOutcomes } from './components/TherapyOutcomes';
 import { AF_OPTIONS, CLASS_OPTIONS, GenomicFindings } from './components/GenomicFindings';
 import { IBD_CLASSES, OTHER_MEDS, TreatmentTimeline } from './components/TreatmentTimeline';
@@ -188,6 +189,10 @@ export const SECTIONS: Registry = {
     ),
     settings: (config, set) => (
       <>
+        <fieldset className="setting-group">
+          <legend className="muted-label">Population (applies everywhere in this browser)</legend>
+          <PopulationPicker compact />
+        </fieldset>
         <fieldset className="setting-group">
           <legend className="muted-label">Match on by default</legend>
           <div className="lab-picker">

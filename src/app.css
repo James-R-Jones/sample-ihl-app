@@ -188,6 +188,10 @@ mark.hl { background: rgb(from var(--cp-color-yellow) r g b / .45); color: inher
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field .muted { font-size: .82rem; }
 .endpoint-dialog-foot { gap: 8px; }
+.population-status { font-size: .85rem; }
+.text-danger { color: var(--cp-color-danger, #b42318); }
+.coverage-cell { display: inline-block; min-width: 1.2em; text-align: center; }
+.coverage-yes { color: var(--cp-color-success, #1a7f37); font-weight: 600; }
 
 /* All timeline settings live in the section's modal: hide the library's
    per-layer gear and the Settings block it shows in the sidebar (the sidebar
@@ -272,3 +276,4 @@ mark.hl { background: rgb(from var(--cp-color-yellow) r g b / .45); color: inher
 .genomics-pathway-table th, .genomics-pathway-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--cp-color-win-3); }
 .lof-flag { color: var(--cp-color-red); font-weight: 600; font-size: .78rem; }
 .chip.chip--lof { border-color: var(--cp-color-red); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

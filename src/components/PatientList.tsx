@@ -12,6 +12,19 @@ import { SearchResultsList, resultKey } from './SearchResultsList';
 import { EndpointPicker } from './EndpointPicker';
 import { ENDPOINT } from '../config';
 import { loadVisitSummaries, type VisitInfo, type VisitSummary } from '../visits';
+import { useGenomicsCoverage, useServerSearchCoverage, type Coverage } from '../coverage';
+import { PopulationPicker } from './PopulationPicker';
+
+/** Check mark when the patient has data in another API. */
+function CoverageCell({ cov, id, yes, no }: { cov: Coverage; id: string; yes: string; no: string }) {
+  if (cov.ids.has(id)) return <span className="coverage-cell coverage-yes" data-tooltip={yes} aria-label={yes}>✓</span>;
+  if (cov.status === 'loading') return <span className="coverage-cell muted">…</span>;
+  if (cov.status === 'unsupported' || cov.status === 'error' || cov.unknown?.has(id)) {
+    const why = cov.status === 'unsupported' ? 'Not available for this data source' : `Could not check: ${cov.error}`;
+    return <span className="coverage-cell muted" data-tooltip={why}>n/a</span>;
+  }
+  return <span className="coverage-cell muted" data-tooltip={no} aria-label={no}>—</span>;
+}
 
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -60,6 +73,8 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
   const terms = useMemo(() => parseQuery(deferredQuery), [deferredQuery]);
   const active = terms.length > 0;
   const ids = useMemo(() => rows.map(r => r.id), [rows]);
+  const genomics = useGenomicsCoverage(ids);
+  const indexed = useServerSearchCoverage(ids);
 
   // Server search returns matching notes across the cohort in one call; the
   // in-browser search downloads and indexes every patient's whole record.
@@ -114,6 +129,9 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
       ...r,
       lastVisit: visits?.get(r.id)?.last?.date,
       lastIbdVisit: visits?.get(r.id)?.lastIbd?.date,
+      // Sort keys for the check-mark columns: 1 yes, 0 no, null not known yet.
+      genomics: genomics.ids.has(r.id) ? 1 : genomics.status === 'ready' ? 0 : null,
+      indexed: indexed.ids.has(r.id) ? 1 : indexed.status === 'ready' && !indexed.unknown?.has(r.id) ? 0 : null,
     }));
     if (active) {
       hits = hits.map(r => {
@@ -134,7 +152,7 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
     const sorted = [...hits].sort((a, b) =>
       compare(a[sortColumn as keyof PatientRow], b[sortColumn as keyof PatientRow]));
     return sortDir === 'desc' ? sorted.reverse() : sorted;
-  }, [rows, visits, terms, sortColumn, sortDir, active, results, onlyMatches]);
+  }, [rows, visits, genomics, indexed, terms, sortColumn, sortDir, active, results, onlyMatches]);
 
   const page = filtered.slice(offset, offset + PAGE_SIZE);
   const counts = useMemo(() => ({
@@ -150,6 +168,7 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
         <div>
           <h1>Patients</h1>
           <EndpointPicker />
+          <PopulationPicker />
           <p className="muted">
             {rows.length} synthetic patients · {counts.female} female · {counts.male} male
           </p>
@@ -248,6 +267,12 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
               );
             },
           })) : []),
+          { propName: 'genomics', label: 'Genomics', dataType: 'number', sortProp: 'genomics',
+            renderCell: (r: PatientRow) => <CoverageCell cov={genomics} id={r.id}
+              yes="Has a genomic sample (synthetic genomics API)" no="No genomic sample" /> },
+          { propName: 'indexed', label: 'Server search', dataType: 'number', sortProp: 'indexed',
+            renderCell: (r: PatientRow) => <CoverageCell cov={indexed} id={r.id}
+              yes="Notes indexed for server search (fhirfts)" no="No notes in the server search index" /> },
           { propName: 'gender', label: 'Sex', dataType: 'string', sortProp: 'gender' },
           // Some cohorts (e.g. smartcumulus.org) omit birth dates, so both can be empty.
           { propName: 'birthDate', label: 'Birth date', dataType: 'string', sortProp: 'birthDate',

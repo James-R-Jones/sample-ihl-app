@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Patient } from 'fhir/r4';
 import { Alert, Badge, Button, Chart, CheckBox, Loader, RadioButton } from 'clinical-primitives';
 import { DIMENSIONS, THERAPIES, type Therapy, useOutcomeCube } from '../outcomes/cube';
+import { usePopulation } from '../outcomes/population';
 import {
   SUBTYPE_CD, evaluate, toStrata, widen, type Evaluation, type RankedTherapy, type Selection, type StratKey,
 } from '../outcomes/engine';
@@ -54,9 +55,15 @@ const fromProfile = (p: IbdProfile): Values => ({
 const years = (n: number, d = 2) => n.toFixed(d);
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-export function TherapyOutcomes({ patient, resources, config }: {
-  patient: Patient; resources: Record<string, unknown[]>; config: OutcomesConfig;
-}) {
+type Props = { patient: Patient; resources: Record<string, unknown[]>; config: OutcomesConfig };
+
+/** Starts again from the patient's values (and auto-widens) when the population changes. */
+export function TherapyOutcomes(props: Props) {
+  const pop = usePopulation();
+  return <OutcomesForPopulation key={pop.id} {...props} />;
+}
+
+function OutcomesForPopulation({ patient, resources, config }: Props) {
   const profile = useMemo(() => deriveProfile(patient, resources), [patient, resources]);
   const { cube, error } = useOutcomeCube();
 

@@ -205,6 +205,24 @@ An **IBD clinic visit** is an ambulatory or virtual encounter whose reason is an
 excluded), or any encounter with a pediatric gastroenterology note. The rule is
 `isIbdClinicVisit` in `src/visits.ts`; adjust it there if your definition differs.
 
+### Other-API columns (patient list)
+
+**Genomics** and **Server search** show a check mark when the patient also has data there.
+
+- **Genomics:** the synthetic genomics API has a sample whose subject is the patient (parents'
+  samples, `<id>-M` and `<id>-F`, do not count). Uses the cached sample list, so it costs nothing
+  after the first load. On 2026-10-12 all ten v2 patients had one and no v1 patient did.
+- **Server search:** the patient has notes in the sds-es-fhir index. One cohort-wide notes
+  search per patient with the patient id as the keyword (it matches the notes' subject
+  reference), three at a time, each retried once. They take 0.4 to 10 s and up to about 1 MB
+  each. Combining ids with `+` is faster but some combinations fail without CORS headers, so
+  each id is checked on its own. Results are kept for the browser session
+  (`sessionStorage` `ihl-patient-app.ftsIndexed`).
+
+**n/a** means the check could not run (no fhirfts service for the data source, or the call
+failed; the tooltip says which). Both columns sort, with unknowns last. Logic is in
+`src/coverage.ts`.
+
 ### Cohort search (patient list)
 
 The table's own search box searches names and the table's columns and, at the same time, every
@@ -256,11 +274,24 @@ brings the IBD Therapy Outcome Picker into the app. An event is steroid rescue, 
 another drug class, or surgery.
 
 - **Data.** A synthetic cube of 10,000 children aged 0 to 17 at diagnosis. Cells under 10
-  patients are removed. `src/outcomes/cube.ts` loads it once, on first use, from the study API
-  (`GET https://www.smartcumulus.org/synthetic/study/ibd/cohort/cumulus_sim_ibd_v2_db/cube?tables=ibd_0_17_years_efs_cube_client_min10`,
-  polling while it answers 202). If that fails it falls back to the bundled copy,
-  `public/data/ibd_0_17_years_efs_cube_min10.csv` (dictionary alongside); the two were identical
-  (31,373 rows) when checked on 2026-10-12. The section's footnote says which one it used.
+  patients are removed. The **Outcomes population** selector (on the patient list, and in the
+  section's gear) picks where it comes from; the choice is kept per browser
+  (`src/outcomes/population.ts`):
+
+  | Choice | Source |
+  |---|---|
+  | IBD v2, ages 0–17 · smartcumulus.org (default) | `GET https://www.smartcumulus.org/synthetic/study/ibd/cohort/cumulus_sim_ibd_v2_db/cube?tables=ibd_0_17_years_efs_cube_client_min10` |
+  | IBD v2, ages 0–17 · dashboard-test | the same path on `https://dashboard-test.smartcumulus.org/test` |
+  | IBD v2, ages 0–17 · bundled copy | `public/data/ibd_0_17_years_efs_cube_min10.csv` (dictionary alongside) |
+
+  All three were identical (31,373 rows) on 2026-10-12, and that table was the only
+  event-free survival cube either study API listed. The API choices poll while the API answers
+  202 and fall back to the bundled copy if it fails; the section's footnote says which was used.
+  **Add…** saves another study API cohort and table: it must have the cube's columns
+  (`event_free_survival_years`, `efs_status`, `age_at_initial_diagnosis_years`,
+  `firstline_therapy`, `gender`, `ibd_subtype`, `severity`, `perianal_disease`, `cnt`) or it is
+  refused with the missing columns named. Added populations do not fall back.
+  Changing the population restarts the section from the patient's values.
 - **Method** (`src/outcomes/engine.ts`, ported unchanged from the picker and checked to give
   identical results for all 252 profiles). An actuarial (Cutler-Ederer) life table by whole year,
   then average event-free years as the restricted mean over a 1, 2, 3 or 5 year window. Patients

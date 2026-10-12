@@ -79,7 +79,10 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
   const active = terms.length > 0;
   const ids = useMemo(() => rows.map(r => r.id), [rows]);
   const genomics = useGenomicsCoverage(ids);
-  const notes = useNotesIndexed(ids);
+  // Notes indexed is hidden by default; its per-patient fhirfts calls start
+  // only once one of its cells renders (the grid renders visible columns only).
+  const [notesShown, setNotesShown] = useState(false);
+  const notes = useNotesIndexed(ids, notesShown);
 
   // Server search returns matching notes across the cohort in one call; the
   // in-browser search downloads and indexes every patient's whole record.
@@ -283,11 +286,11 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
                 )}
               </CoverageCell>
             ) },
-          { propName: 'notesIndexed', label: 'Notes indexed', dataType: 'number', sortProp: 'notesIndexed',
+          { propName: 'notesIndexed', label: 'Notes indexed', dataType: 'number', sortProp: 'notesIndexed', visible: false,
             renderCell: (r: PatientRow) => (
-              <CoverageCell cov={notes} id={r.id} none="No notes in the server search index">
+              <OnShow done={notesShown} onShow={() => setNotesShown(true)}><CoverageCell cov={notes} id={r.id} none="No notes in the server search index">
                 {n => <span className="coverage-cell" data-tooltip={`${plural(n, 'note')} in the server search (fhirfts) index`}><span className="coverage-yes">✓</span> {n}</span>}
-              </CoverageCell>
+              </CoverageCell></OnShow>
             ) },
           { propName: 'gender', label: 'Sex', dataType: 'string', sortProp: 'gender' },
           // Some cohorts (e.g. smartcumulus.org) omit birth dates, so both can be empty.
@@ -299,7 +302,7 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
           { propName: 'location', label: 'Location', dataType: 'string', sortProp: 'location' },
           { propName: 'lastVisit', label: 'Last visit', dataType: 'string', sortProp: 'lastVisit',
             renderCell: (r: PatientRow) => <VisitCell patientId={r.id} visit={visits?.get(r.id)?.last} loading={!visits && !visitsError} /> },
-          { propName: 'lastIbdVisit', label: 'Last IBD clinic visit', dataType: 'string', sortProp: 'lastIbdVisit',
+          { propName: 'lastIbdVisit', label: 'Last IBD clinic visit', dataType: 'string', sortProp: 'lastIbdVisit', visible: false,
             renderCell: (r: PatientRow) => <VisitCell patientId={r.id} visit={visits?.get(r.id)?.lastIbd} loading={!visits && !visitsError} /> },
           { propName: 'id', label: 'FHIR id', dataType: 'id', visible: false },
         ]}
@@ -363,6 +366,13 @@ function PatientMatchesDialog({ patient, query, terms, results, onClose }: {
       </div>
     </Dialog>
   );
+}
+
+/** Calls onShow once after it first renders, then just renders its children. */
+function OnShow({ done, onShow, children }: { done: boolean; onShow: () => void; children: ReactNode }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!done) onShow(); }, [done]);
+  return <>{children}</>;
 }
 
 /** Calls onMount in the same commit it mounts in (before the browser paints). */

@@ -51,11 +51,13 @@ async function pool<T>(ids: string[], n: number, check: (id: string) => Promise<
   if (ids.length && unknown.size === ids.length) throw new Error(error);
 }
 
-function useCoverage<T>(ids: string[], load: Loader<T> | null): Coverage<T> {
+/** `enabled` false waits (status stays loading) without calling anything. */
+function useCoverage<T>(ids: string[], load: Loader<T> | null, enabled = true): Coverage<T> {
   const [state, setState] = useState<Coverage<T>>({ status: load ? 'loading' : 'unsupported', data: new Map(), unknown: new Set() });
   const key = ids.join(',');
   useEffect(() => {
     if (!load) { setState({ status: 'unsupported', data: new Map(), unknown: new Set() }); return; }
+    if (!enabled) return;
     if (!ids.length) return;
     let live = true;
     setState(s => ({ ...s, status: 'loading' }));
@@ -65,7 +67,7 @@ function useCoverage<T>(ids: string[], load: Loader<T> | null): Coverage<T> {
     );
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, !!load]);
+  }, [key, !!load, enabled]);
   return state;
 }
 
@@ -113,4 +115,5 @@ const ftsLoad: Loader<number> = async (ids, update) => {
 };
 
 export const useGenomicsCoverage = (ids: string[]) => useCoverage(ids, genomicsLoad);
-export const useNotesIndexed = (ids: string[]) => useCoverage(ids, ftsUrl() ? ftsLoad : null);
+/** Only checked once `enabled` (the column is hidden by default, and each check is a slow call). */
+export const useNotesIndexed = (ids: string[], enabled: boolean) => useCoverage(ids, ftsUrl() ? ftsLoad : null, enabled);

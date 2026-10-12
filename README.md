@@ -200,7 +200,8 @@ kept in this browser (`src/serverSearch.ts`).
 ### Visit columns (patient list)
 
 **Last visit** and **Last IBD clinic visit** show the date (linking to that visit's page) with
-its reason underneath; both sort by date and can be shown or hidden from the grid's column menu.
+its reason underneath; both sort by date. Last IBD clinic visit is hidden by default; turn it on
+from the grid's column menu (the gear above the table).
 They come from two cohort-wide calls (Encounter and DocumentReference, field-filtered, about
 1 MB together), not from each patient's full record. Visits dated after today are ignored.
 
@@ -212,7 +213,8 @@ excluded), or any encounter with a pediatric gastroenterology note. The rule is
 ### Other-API columns (patient list)
 
 **Genomics** and **Notes indexed** show a check mark and a count when the patient also has data
-there.
+there. Notes indexed is hidden by default (turn it on from the grid's column menu); its fhirfts
+calls start only once the column is shown.
 
 - **Genomics** (probands only; parents' samples, `<id>-M` and `<id>-F`, are not counted): the
   number of rare classified variants in the child's sample (gnomAD under 1%; pathogenic, likely

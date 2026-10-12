@@ -1,8 +1,8 @@
 /**
  * LOINC codes for each lab preset. Mirrors the LABS dictionary inside
- * clinical-primitives (src/components/Observation/ObservationFilters.ts), which
- * LabTrendPanel uses but the package does not export, plus 38445-3 (stool
- * calprotectin, mass/mass), which this cohort uses.
+ * clinical-primitives (src/components/Observation/ObservationFilters.ts, as of
+ * commit b10c1b0), which LabTrendPanel uses but the package does not export.
+ * Calprotectin keeps two older stool codes the library dropped.
  */
 export interface LabDef {
   label: string;
@@ -10,15 +10,15 @@ export interface LabDef {
 }
 
 export const LAB_CODES: Record<string, LabDef> = {
-  CRP:          { label: 'CRP',          loincs: ['1988-5', '14959-1', '71426-1'] },
+  CRP:          { label: 'CRP',          loincs: ['1988-5', '71426-1', '30522-7'] },
   ESR:          { label: 'ESR',          loincs: ['30341-2', '4537-7'] },
   Calprotectin: { label: 'Calprotectin', loincs: ['35896-1', '27818-8', '38445-3'] },
-  Albumin:      { label: 'Albumin',      loincs: ['1751-7', '3519-7', '2862-1'] },
+  Albumin:      { label: 'Albumin',      loincs: ['1751-7', '61151-7', '61152-5', '2862-1'] },
   Hemoglobin:   { label: 'Hemoglobin',   loincs: ['718-7', '20509-6'] },
   Platelets:    { label: 'Platelets',    loincs: ['777-3', '26515-7'] },
   WBC:          { label: 'WBC',          loincs: ['6690-2', '26464-8'] },
   Ferritin:     { label: 'Ferritin',     loincs: ['2276-4', '20567-4'] },
-  VitaminD:     { label: 'Vitamin D',    loincs: ['35365-7', '1989-3', '14635-7'] },
+  VitaminD:     { label: 'Vitamin D',    loincs: ['62292-8', '83070-3', '1989-3', '14635-7'] },
   VitaminB12:   { label: 'Vitamin B12',  loincs: ['2132-9', '14685-2'] },
   ALT:          { label: 'ALT',          loincs: ['1742-6', '1743-4'] },
   AST:          { label: 'AST',          loincs: ['1920-8', '30239-8'] },

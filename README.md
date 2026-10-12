@@ -193,11 +193,12 @@ anti-interleukin, anti-integrin, JAK inhibitor) among children like the current 
 brings the IBD Therapy Outcome Picker into the app. An event is steroid rescue, escalation to
 another drug class, or surgery.
 
-- **Data.** A synthetic cube of 10,000 children aged 0 to 17 at diagnosis
-  (`public/data/ibd_0_17_years_efs_cube_min10.csv`, dictionary alongside). Cells under 10
-  patients are removed. It is loaded once, on first use, by `src/outcomes/cube.ts`. To read it
-  from an API later, replace `loadCube()` there with a fetch that yields the same rows (the study
-  API's `GET /study/{study}/cube` returns `{columns, rows}`) and pass them to `cubeFromRows`.
+- **Data.** A synthetic cube of 10,000 children aged 0 to 17 at diagnosis. Cells under 10
+  patients are removed. `src/outcomes/cube.ts` loads it once, on first use, from the study API
+  (`GET https://www.smartcumulus.org/synthetic/study/ibd/cohort/cumulus_sim_ibd_v2_db/cube?tables=ibd_0_17_years_efs_cube_client_min10`,
+  polling while it answers 202). If that fails it falls back to the bundled copy,
+  `public/data/ibd_0_17_years_efs_cube_min10.csv` (dictionary alongside); the two were identical
+  (31,373 rows) when checked on 2026-10-12. The section's footnote says which one it used.
 - **Method** (`src/outcomes/engine.ts`, ported unchanged from the picker and checked to give
   identical results for all 252 profiles). An actuarial (Cutler-Ederer) life table by whole year,
   then average event-free years as the restricted mean over a 1, 2, 3 or 5 year window. Patients
@@ -269,13 +270,13 @@ the opposite `Content-Type` handling (its CORS preflight rejected the header) an
 
 ## Known library quirks
 
-- `LabTrendPanel` falls back to substring keyword matching, so in this cohort its Weight and
-  BMI rows also pick up percentile observations (`77606-2` weight-for-length %, `59576-9`
-  BMI percentile %). The dated charts match by LOINC only for that reason.
-- `LabTrendPanel`'s LOINC list lacks `38445-3` (stool calprotectin, the code this cohort uses);
-  `src/labs.ts` adds it.
-
-- `.cp-row` gets `min-height: 500px` unless an ancestor has a `cp-*` class; `app.css`
-  overrides it for the `DataGrid` toolbar.
-- clinical-primitives is pre-1.0. `package-lock.json` pins the commit that was tested; run
-  `npm update clinical-primitives` to pull the latest `main`.
+- `LabTrendPanel` falls back to whole-word keyword matching for readings whose code no row
+  lists. The dated charts and the timeline match by LOINC only (`src/labs.ts`), since a chart has
+  one unit per axis.
+- `src/labs.ts` copies the library's lab code table, which the package does not export. It was
+  last synced with commit `b10c1b0` (October 9, 2026); check it again after updating the library.
+- The timeline's selection is not exported, so the app clears it with a capture-phase click
+  listener (`TreatmentTimeline.tsx`).
+- clinical-primitives is pre-1.0. `package-lock.json` pins the commit that was tested
+  (`b10c1b0`). `npm update` does not move a GitHub dependency; to pull the latest `main`, run
+  `npm install github:smart-on-fhir/clinical-primitives`.

@@ -83,18 +83,53 @@ export function parseCsv(text: string): Record<string, string>[] {
 }
 
 /**
- * The cube source. For now a static CSV shipped with the app; to read from an
- * API instead, replace this with a fetch that returns the same rows (the study
- * API's GET /study/{study}/cube returns {columns, rows}; zip those into
- * objects and pass them to cubeFromRows).
+ * The cube source: the study API first, the CSV shipped with the app if the
+ * API is unreachable or returns something unexpected. Both were checked to be
+ * identical (31,373 rows, same values) on 2026-10-12.
+ *
+ * GET {STUDY_API}/cube?tables=<table> returns
+ * {status: 'complete' | 'pending', cubes: [{name, count, columns: [{name}], rows: [[...]]}]};
+ * 'pending' (HTTP 202) means poll again after Retry-After.
  */
+export const STUDY_API = 'https://www.smartcumulus.org/synthetic/study/ibd/cohort/cumulus_sim_ibd_v2_db';
+export const CUBE_TABLE = 'ibd_0_17_years_efs_cube_client_min10';
 export const CUBE_FILE = 'data/ibd_0_17_years_efs_cube_min10.csv';
 
-async function loadCube(): Promise<Cube> {
+async function loadCubeFromApi(): Promise<Cube> {
+  const url = `${STUDY_API}/cube?tables=${encodeURIComponent(CUBE_TABLE)}`;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const res = await fetch(url);
+    if (res.status === 202) {
+      await new Promise(r => setTimeout(r, 1000 * (Number(res.headers.get('Retry-After')) || 2)));
+      continue;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json() as { cubes?: { name: string; columns: { name: string }[]; rows: unknown[][] }[] };
+    const cube = body.cubes?.find(c => c.name === CUBE_TABLE) ?? body.cubes?.[0];
+    if (!cube?.rows?.length) throw new Error('no rows');
+    const names = cube.columns.map(c => c.name);
+    const rows = cube.rows.map(r => Object.fromEntries(names.map((n, i) => [n, r[i] as string | number | null])));
+    const built = cubeFromRows(rows, `Study API (${CUBE_TABLE}), synthetic IBD cohort ages 0 to 17, cells under 10 removed`);
+    if (!built.total) throw new Error('no cohort total row');
+    return built;
+  }
+  throw new Error('still pending after 10 tries');
+}
+
+async function loadCubeFromFile(): Promise<Cube> {
   const url = `${import.meta.env.BASE_URL}${CUBE_FILE}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Could not load ${CUBE_FILE} (HTTP ${res.status})`);
-  return cubeFromRows(parseCsv(await res.text()), 'Synthetic IBD cohort, ages 0 to 17, cells under 10 removed');
+  return cubeFromRows(parseCsv(await res.text()), 'Bundled copy of the synthetic IBD cohort cube, ages 0 to 17, cells under 10 removed (study API unavailable)');
+}
+
+async function loadCube(): Promise<Cube> {
+  try {
+    return await loadCubeFromApi();
+  } catch (e) {
+    console.warn('Outcome cube: study API failed, using the bundled CSV:', e);
+    return loadCubeFromFile();
+  }
 }
 
 let cached: Promise<Cube> | null = null;

@@ -79,10 +79,6 @@ html, body { margin: 0; background: var(--cp-color-win); color: var(--cp-color-t
   .app-main { padding: 12px; }
 }
 
-/* clinical-primitives' .cp-row gets min-height: 500px unless an ancestor has a
-   cp-* class, which pushes the DataGrid toolbar down. Neutralise it here. */
-.data-grid > .cp-row { min-height: auto; }
-
 .lab-charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
 .lab-chart { min-width: 0; border: 1px solid var(--cp-color-win-3); border-radius: 6px; padding: 8px; }
 

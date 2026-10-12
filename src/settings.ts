@@ -79,6 +79,8 @@ export interface SectionConfigs {
 
 export interface Settings {
   version: 2;
+  /** Bumped when the default layout changes; older saved layouts are reset to it once. */
+  layoutRev?: number;
   layout: SectionLayout[];
   config: SectionConfigs;
   theme: 'system' | 'light' | 'dark';
@@ -86,20 +88,25 @@ export interface Settings {
 
 const IBD_LABS = ['CRP', 'ESR', 'Calprotectin', 'Albumin', 'Hemoglobin', 'Platelets', 'Weight', 'BMI'];
 
+/** Default sections: patient, search, timeline, therapy outcomes, genomic findings. */
+const LAYOUT_REV = 2;
+
 export const DEFAULT_SETTINGS: Settings = {
   version: 2,
+  layoutRev: LAYOUT_REV,
   layout: [
     { id: 'summary',       visible: true,  wide: true },
     { id: 'search',        visible: true,  wide: true },
     { id: 'timeline',      visible: true,  wide: true },
     { id: 'outcomes',      visible: true,  wide: true },
     { id: 'genomics',      visible: true,  wide: true },
-    { id: 'labTrends',     visible: true,  wide: false },
-    { id: 'conditions',    visible: true,  wide: false },
-    { id: 'labCharts',     visible: true,  wide: true },
-    { id: 'medications',   visible: true,  wide: false },
+    // Available from the Sections menu on a patient page.
+    { id: 'labTrends',     visible: false, wide: false },
+    { id: 'conditions',    visible: false, wide: false },
+    { id: 'labCharts',     visible: false, wide: true },
+    { id: 'medications',   visible: false, wide: false },
     { id: 'immunizations', visible: false, wide: false },
-    { id: 'observations',  visible: true,  wide: true },
+    { id: 'observations',  visible: false, wide: true },
   ],
   config: {
     summary: {},
@@ -149,7 +156,9 @@ function load(): Settings {
     if (!saved || saved.version !== 2) return DEFAULT_SETTINGS;
     // Sections added since the layout was saved go in at their default
     // position: right after the section that precedes them in the defaults.
-    const layout = (saved.layout ?? []).filter(l => SECTION_IDS.includes(l.id));
+    const layout = saved.layoutRev === LAYOUT_REV
+      ? (saved.layout ?? []).filter(l => SECTION_IDS.includes(l.id))
+      : DEFAULT_SETTINGS.layout.map(l => ({ ...l }));
     DEFAULT_SETTINGS.layout.forEach((d, i) => {
       if (layout.some(l => l.id === d.id)) return;
       const before = DEFAULT_SETTINGS.layout.slice(0, i).reverse().find(p => layout.some(l => l.id === p.id));
@@ -166,7 +175,7 @@ function load(): Settings {
       config.timeline.encounterClasses = [...(old.emergency ? ['EMER'] : []), ...(old.inpatient ? ['IMP'] : [])];
     }
     delete (config.timeline as any).events;
-    return { ...DEFAULT_SETTINGS, ...saved, layout, config };
+    return { ...DEFAULT_SETTINGS, ...saved, layoutRev: LAYOUT_REV, layout, config };
   } catch {
     return DEFAULT_SETTINGS;
   }

@@ -59,8 +59,12 @@ appears first in the list as "Configured (.env)".
 
 The patient page is a grid of **sections**. Each section has a gear in its header that opens
 a modal with its own settings (labs to show, chart height, data source, and so on) plus layout controls
-(full or half width, move up or down); changes apply live behind the modal. An × hides the section. The **Sections** button in the top
-bar brings hidden sections back and sets the theme. Settings are saved in localStorage.
+(full or half width, move up or down); changes apply live behind the modal. An × hides the section. On a patient page, the **Sections**
+button in the top bar brings hidden sections back and sets the theme. Settings are saved in localStorage.
+
+Shown by default: Patient, Search this record, Treatment timeline, Therapy outcomes and Genomic
+findings. The rest start hidden and can be added from the **Sections** menu, which appears on a
+patient page (not on the patient list). Browsers that saved an older layout get this one once.
 
 | Section | Built from | Its settings |
 |---|---|---|
@@ -74,7 +78,7 @@ bar brings hidden sections back and sets the theme. Settings are saved in localS
 | Conditions | `ConditionList` | none |
 | Medications | `MedicationList` | prescriptions or administrations |
 | Observations | `ObservationsPanel` | which filter tabs |
-| Immunizations (hidden by default) | `ImmunizationList` | none |
+| Immunizations | `ImmunizationList` | none |
 
 | File | Purpose |
 |---|---|

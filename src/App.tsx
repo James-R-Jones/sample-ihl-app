@@ -17,7 +17,7 @@ export function App() {
           <a className="app-title" href={href.list()}>IHL Patient Explorer</a>
           <span className="app-source" title={ENDPOINT.url}>{ENDPOINT.label}</span>
           <div className="app-spacer" />
-          <SectionsMenu api={settingsApi} />
+          {route.name !== 'list' && <SectionsMenu api={settingsApi} />}
         </header>
         <main className="app-main">
           {route.name === 'list'

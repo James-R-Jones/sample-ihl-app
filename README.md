@@ -35,12 +35,16 @@ unauthenticated and the data is synthetic; anything pointed at real data needs a
 
 The **Data source** dropdown on the patient list switches between cohort endpoints. Built in:
 
-| Name | URL | Style |
-|---|---|---|
-| SMART Cumulus · Synthetic IBD v2 (default) | `https://www.smartcumulus.org/synthetic/fhir/cumulus_sim_ibd_v2` | FastAPI |
-| Cumulus dashboard (test) · Synthetic IBD v2 | `https://dashboard-test.smartcumulus.org/test/fhir/cumulus_sim_ibd_v2` | FastAPI |
-| SMART Cumulus · Synthetic IBD | `https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients` | FastAPI |
-| AWS test · Synthetic IBD (requires VPN) | `https://04sdlmjrsh.execute-api.us-east-1.amazonaws.com/test/fhir/sim-ibd-patients` | AWS; returns 403 off the VPN |
+| Name | URL | Style | Listed in |
+|---|---|---|---|
+| SMART Cumulus · Synthetic IBD v2 (default) | `https://www.smartcumulus.org/synthetic/fhir/cumulus_sim_ibd_v2` | FastAPI | deployed site and `npm run dev` |
+| AWS test · Synthetic IBD (requires VPN) | `https://04sdlmjrsh.execute-api.us-east-1.amazonaws.com/test/fhir/sim-ibd-patients` | AWS; returns 403 off the VPN | deployed site and `npm run dev` |
+| Cumulus dashboard (test) · Synthetic IBD v2 | `https://dashboard-test.smartcumulus.org/test/fhir/cumulus_sim_ibd_v2` | FastAPI | `npm run dev` only |
+| SMART Cumulus · Synthetic IBD | `https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients` | FastAPI | `npm run dev` only |
+
+Sources marked `devOnly` in `src/endpoints.ts` are left out of the production build. A saved
+choice or link that names one of them opens the default instead on the deployed site; **Add…**
+with its URL still works there.
 
 **Add…** saves another endpoint in this browser after testing it (`GET /resources` and a Patient
 list call). Endpoints differ in two protocol details, set per endpoint in `src/endpoints.ts`:

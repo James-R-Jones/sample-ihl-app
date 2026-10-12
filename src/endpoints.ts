@@ -20,11 +20,18 @@ export interface Endpoint {
   jsonContentType: boolean;
   trailingSlash: boolean;
   builtin?: boolean;
+  /** Listed only in `npm run dev`, not in the deployed build. */
+  devOnly?: boolean;
 }
 
 const fromEnv = import.meta.env.VITE_FHIR_API_BASE as string | undefined;
 
-export const BUILTIN_ENDPOINTS: Endpoint[] = [
+/**
+ * The deployed site lists only the v2 cohort and the AWS test cohort; the
+ * others stay available in local development. A link or saved choice naming a
+ * source the build does not list falls back to the first one.
+ */
+const ALL_BUILTIN_ENDPOINTS: Endpoint[] = [
   ...(fromEnv ? [{
     id: 'env', label: 'Configured (.env)', url: fromEnv, jsonContentType: true, trailingSlash: false, builtin: true,
   }] : []),
@@ -38,6 +45,7 @@ export const BUILTIN_ENDPOINTS: Endpoint[] = [
   },
   {
     id: 'dashboard-test-ibd-v2',
+    devOnly: true,
     label: 'Cumulus dashboard (test) · Synthetic IBD v2',
     url: 'https://dashboard-test.smartcumulus.org/test/fhir/cumulus_sim_ibd_v2',
     jsonContentType: true,
@@ -46,6 +54,7 @@ export const BUILTIN_ENDPOINTS: Endpoint[] = [
   },
   {
     id: 'smartcumulus-ibd',
+    devOnly: true,
     label: 'SMART Cumulus · Synthetic IBD',
     url: 'https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients',
     jsonContentType: true,
@@ -61,6 +70,8 @@ export const BUILTIN_ENDPOINTS: Endpoint[] = [
     builtin: true,
   },
 ];
+
+export const BUILTIN_ENDPOINTS = ALL_BUILTIN_ENDPOINTS.filter(e => import.meta.env.DEV || !e.devOnly);
 
 const CUSTOM_KEY = 'ihl-patient-app.endpoints.custom';
 const SELECTED_KEY = 'ihl-patient-app.endpoints.selected';

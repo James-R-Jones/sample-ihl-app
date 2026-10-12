@@ -68,6 +68,7 @@ bar brings hidden sections back and sets the theme. Settings are saved in localS
 | Search this record | `RecordSearch` (app) with library `Dialog`, `SourceDialog` | notes-only matches, resource types to leave out, results per page |
 | Treatment timeline | `TimelineChart` with `MedicationsTimeline`, `ObservationsTimeline`, `BarChartTimeline` | lab rows; drug classes shown (incl. non-IBD); all or active courses; encounter classes; rows by class or visit type; endoscopy |
 | Therapy outcomes in similar children | `TherapyOutcomes` (app) with library `Chart`, `CheckBox`, `RadioButton`, `Badge`, `Alert`, `Button` | stratifiers matched by default, auto-widen, default age and outcome windows, which charts |
+| Genomic findings | `GenomicFindings` (app) with library `FindingCard`, `CheckBox`, `RadioButton`, `Loader`, `Alert` | gnomAD frequency limit, classifications, IBD genes only, protein-changing only, hide common IBD-pathway variants, cards per page |
 | IBD lab trends | `LabTrendPanel` | labs |
 | IBD lab charts | `ObservationChart` per lab | labs, chart height |
 | Conditions | `ConditionList` | none |
@@ -130,6 +131,39 @@ to its first and most recent occurrence) or as **all results**, newest first, wi
 snippets. Links to the overall first and most recent match sit above the list. Clicking a
 result opens a dialog with every matching field, the full note text with matches highlighted,
 the raw source, and "Show visit" for the encounter it belongs to (shown with `EncounterDetail`).
+
+### Genomic findings
+
+Germline variants for the patient from the synthetic genomics test API
+(`https://p70a3lr56f.execute-api.us-east-1.amazonaws.com/sim/cumulus_sim_ibd_v2_db`, the
+`genomics-api` skill in the starter kit). It holds 10 trios: child samples `SYNTH_P001`…`P010`
+whose subject is the v2 FHIR Patient id, and parents `<id>-M` / `<id>-F`. Patients outside that
+set show "No genomic sample". Code: `src/genomics.ts` and `src/components/GenomicFindings.tsx`.
+
+- **Default filters** (gear): gnomAD frequency under 1%; classification Pathogenic, Likely
+  pathogenic, Conflicting or VUS; IBD genes only (the API's IBD gene taxonomy); protein-changing
+  and splice variants only (pathogenic calls always show); hide common variants in known IBD
+  pathways. The last three are also toggles in the section.
+- **Variant-absent-from-gnomAD gap.** The API's frequency filter drops variants with no gnomAD
+  frequency, which include novel ones. Pathogenic and likely pathogenic calls are therefore also
+  fetched with no frequency limit; novel VUS still do not appear.
+- **Cards** (`FindingCard`): gene and protein change, classification, consequence, zygosity
+  (hemizygous for X-linked variants in boys) and which parent carries it. Tabs: Variant (ClinVar,
+  gnomAD, HGVS, REVEL, CADD), IBD relevance (taxonomy roles, OMIM), Family. Concern is high for
+  pathogenic or likely pathogenic, moderate for protein-changing VUS in monogenic IBD genes, and
+  low otherwise.
+- **Common IBD-pathway variants** (toggle off): the child's variants in 30 established IBD risk
+  genes (NOD2, ATG16L1, IRGM, IL23R, PTPN22, CARD9, LRRK2 and others), excluding rare findings,
+  listed by gene. Most have no frequency or classification in this data set, so a frequency
+  filter cannot find them; they are fetched by gene. Predicted loss-of-function changes are
+  flagged in red.
+- **Speed.** Variant and annotation queries are jobs that take about 15 s each; a patient's first
+  load takes about 20 to 35 s (longer on a cold start), and turning the common-variant toggle off
+  adds about 30 s. Execution ids are kept in localStorage for 44 days (the API keeps them 45),
+  so repeat loads read stored results. Genotypes load per visible card.
+- Checked on v2: `03a10f03` (SYNTH_P004) shows pathogenic TGFBR1 p.Asp333Tyr (paternal) and NPC1
+  p.Cys914Arg (maternal) first; `f2b8aa39` (SYNTH_P007) shows pathogenic BTK p.Trp581Ser,
+  hemizygous, maternal.
 
 ### Server search (fhirfts)
 

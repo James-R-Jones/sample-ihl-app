@@ -255,3 +255,20 @@ mark.hl { background: rgb(from var(--cp-color-yellow) r g b / .45); color: inher
 .search-hint-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
 .search-hint-row .search-hint { margin: 0; }
 .engine-toggle { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Genomic findings */
+.genomics { display: flex; flex-direction: column; gap: 12px; }
+.genomics-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+.genomics-toggles { display: inline-flex; gap: 4px 16px; flex-wrap: wrap; }
+.genomics-loading { display: flex; align-items: center; gap: 10px; }
+.genomics-summary { margin: 0; }
+.genomics-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 12px; align-items: start; }
+.genomic-change { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 500; }
+.genomics-foot { font-size: .78rem; }
+.genomics-pathway { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--cp-color-win-3); padding-top: 10px; }
+.genomics-pathway h4 { margin: 0; }
+.genomics-pathway-genes { display: flex; flex-wrap: wrap; gap: 6px; }
+.genomics-pathway-table { border-collapse: collapse; font-size: .82rem; width: 100%; }
+.genomics-pathway-table th, .genomics-pathway-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--cp-color-win-3); }
+.lof-flag { color: var(--cp-color-red); font-weight: 600; font-size: .78rem; }
+.chip.chip--lof { border-color: var(--cp-color-red); }

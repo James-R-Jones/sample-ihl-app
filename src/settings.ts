@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
  */
 
 export const SECTION_IDS = [
-  'summary', 'search', 'timeline', 'outcomes', 'labTrends', 'labCharts',
+  'summary', 'search', 'timeline', 'outcomes', 'genomics', 'labTrends', 'labCharts',
   'conditions', 'medications', 'observations', 'immunizations',
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
@@ -56,6 +56,19 @@ export interface SectionConfigs {
     /** On opening, widen until two therapies can be compared. */
     autoWiden: boolean;
   };
+  genomics: {
+    /** Upper gnomAD allele frequency for the variant query (1 = any). */
+    maxAf: number;
+    /** Classification tiers to include; empty = any. */
+    classes: string[];
+    /** Only variants in genes the IBD taxonomy covers. */
+    ibdGenesOnly: boolean;
+    /** Hide common (gnomAD > 1%) variants in GWAS / polygenic IBD-pathway genes. */
+    hideCommonIbd: boolean;
+    /** Only protein-changing and splice variants (P/LP always shown). */
+    codingOnly: boolean;
+    pageSize: number;
+  };
   labTrends: { labs: string[] };
   labCharts: { labs: string[]; height: number };
   conditions: Record<string, never>;
@@ -80,6 +93,7 @@ export const DEFAULT_SETTINGS: Settings = {
     { id: 'search',        visible: true,  wide: true },
     { id: 'timeline',      visible: true,  wide: true },
     { id: 'outcomes',      visible: true,  wide: true },
+    { id: 'genomics',      visible: true,  wide: true },
     { id: 'labTrends',     visible: true,  wide: false },
     { id: 'conditions',    visible: true,  wide: false },
     { id: 'labCharts',     visible: true,  wide: true },
@@ -107,6 +121,14 @@ export const DEFAULT_SETTINGS: Settings = {
       showCurves: true,
       showRanges: true,
       autoWiden: true,
+    },
+    genomics: {
+      maxAf: 0.01,
+      classes: ['Pathogenic', 'Likely_pathogenic', 'Conflicting_classifications_of_pathogenicity', 'VUS'],
+      ibdGenesOnly: true,
+      hideCommonIbd: true,
+      codingOnly: true,
+      pageSize: 12,
     },
     labTrends: { labs: IBD_LABS },
     labCharts: { labs: IBD_LABS, height: 160 },

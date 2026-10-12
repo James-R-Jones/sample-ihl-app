@@ -16,6 +16,7 @@ import { LabPicker } from './components/LabPicker';
 import { PatientSummary } from './components/PatientSummary';
 import { RecordSearch } from './components/RecordSearch';
 import { TherapyOutcomes } from './components/TherapyOutcomes';
+import { AF_OPTIONS, CLASS_OPTIONS, GenomicFindings } from './components/GenomicFindings';
 import { IBD_CLASSES, OTHER_MEDS, TreatmentTimeline } from './components/TreatmentTimeline';
 import type { ObservationFilter, SectionConfigs, SectionId } from './settings';
 import type { SearchIntent } from './routes';
@@ -234,6 +235,59 @@ export const SECTIONS: Registry = {
             <CheckBox checked={config.showRanges} onChange={e => set({ showRanges: e.currentTarget.checked })} />
             Average event-free years with ranges
           </label>
+        </fieldset>
+      </>
+    ),
+  },
+
+  genomics: {
+    title: 'Genomic findings',
+    render: (config, ctx) => (
+      <GenomicFindings key={`${ctx.patient.id}:${config.ibdGenesOnly}:${config.hideCommonIbd}:${config.codingOnly}:${config.pageSize}`} patient={ctx.patient} config={config} />
+    ),
+    settings: (config, set) => (
+      <>
+        <fieldset className="setting-group">
+          <legend className="muted-label">gnomAD allele frequency</legend>
+          <RadioButton value={config.maxAf} onChange={v => set({ maxAf: Number(v) })} options={AF_OPTIONS} />
+        </fieldset>
+        <fieldset className="setting-group">
+          <legend className="muted-label">Classification</legend>
+          <div className="lab-picker">
+            {CLASS_OPTIONS.map(c => (
+              <label key={c.value} className="setting-row">
+                <CheckBox
+                  checked={config.classes.includes(c.value)}
+                  onChange={() => set({
+                    classes: config.classes.includes(c.value)
+                      ? config.classes.filter(x => x !== c.value)
+                      : CLASS_OPTIONS.map(o => o.value).filter(v => v === c.value || config.classes.includes(v)),
+                  })}
+                />
+                {c.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="setting-group">
+          <legend className="muted-label">Defaults for the section's toggles</legend>
+          <label className="setting-row">
+            <CheckBox checked={config.ibdGenesOnly} onChange={e => set({ ibdGenesOnly: e.currentTarget.checked })} />
+            IBD genes only
+          </label>
+          <label className="setting-row">
+            <CheckBox checked={config.codingOnly} onChange={e => set({ codingOnly: e.currentTarget.checked })} />
+            Protein-changing and splice variants only
+          </label>
+          <label className="setting-row">
+            <CheckBox checked={config.hideCommonIbd} onChange={e => set({ hideCommonIbd: e.currentTarget.checked })} />
+            Hide common variants (gnomAD over 1%) in known IBD pathways
+          </label>
+        </fieldset>
+        <fieldset className="setting-group">
+          <legend className="muted-label">Cards per page</legend>
+          <RadioButton value={config.pageSize} onChange={v => set({ pageSize: Number(v) })}
+            options={[{ value: 6, label: '6' }, { value: 12, label: '12' }, { value: 24, label: '24' }]} />
         </fieldset>
       </>
     ),

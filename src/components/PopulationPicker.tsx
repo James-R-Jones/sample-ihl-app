@@ -31,7 +31,7 @@ export function PopulationPicker({ compact = false }: { compact?: boolean }) {
       {!compact && (
         <span className="muted population-status">
           {error ? <span className="text-danger">Could not load: {error}</span>
-            : cube ? `${cube.total.toLocaleString()} children in this population${cube.source.includes('unavailable') ? ' · API unavailable, using the bundled copy' : ''}`
+            : cube ? `${cube.total.toLocaleString()} synthetic children in this population${cube.source.includes('unavailable') ? ' · API unavailable, using the bundled copy' : ''}`
             : 'Loading…'}
         </span>
       )}

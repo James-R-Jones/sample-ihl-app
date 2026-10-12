@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { type ReactNode, useDeferredValue, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, CheckBox, DataGrid, Dialog, Loader } from 'clinical-primitives';
 import { listAllPatients } from '../api';
 import { toRow, type PatientRow } from '../patient';
@@ -12,19 +12,24 @@ import { SearchResultsList, resultKey } from './SearchResultsList';
 import { EndpointPicker } from './EndpointPicker';
 import { ENDPOINT } from '../config';
 import { loadVisitSummaries, type VisitInfo, type VisitSummary } from '../visits';
-import { useGenomicsCoverage, useServerSearchCoverage, type Coverage } from '../coverage';
+import { useGenomicsCoverage, useNotesIndexed, type Coverage } from '../coverage';
 import { PopulationPicker } from './PopulationPicker';
 
-/** Check mark when the patient has data in another API. */
-function CoverageCell({ cov, id, yes, no }: { cov: Coverage; id: string; yes: string; no: string }) {
-  if (cov.ids.has(id)) return <span className="coverage-cell coverage-yes" data-tooltip={yes} aria-label={yes}>✓</span>;
-  if (cov.status === 'loading') return <span className="coverage-cell muted">…</span>;
-  if (cov.status === 'unsupported' || cov.status === 'error' || cov.unknown?.has(id)) {
+/** What another API holds for the patient: a value, "—" for nothing, "…" while checking, "n/a" when it can't tell. */
+function CoverageCell<T>({ cov, id, children, none }: {
+  cov: Coverage<T>; id: string; children: (v: T) => ReactNode; none: string;
+}) {
+  const v = cov.data.get(id);
+  if (v != null) return <>{children(v)}</>;
+  if (cov.unknown.has(id) || cov.status === 'unsupported' || cov.status === 'error') {
     const why = cov.status === 'unsupported' ? 'Not available for this data source' : `Could not check: ${cov.error}`;
     return <span className="coverage-cell muted" data-tooltip={why}>n/a</span>;
   }
-  return <span className="coverage-cell muted" data-tooltip={no} aria-label={no}>—</span>;
+  if (cov.status === 'loading') return <span className="coverage-cell muted">…</span>;
+  return <span className="coverage-cell muted" data-tooltip={none}>—</span>;
 }
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -74,7 +79,7 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
   const active = terms.length > 0;
   const ids = useMemo(() => rows.map(r => r.id), [rows]);
   const genomics = useGenomicsCoverage(ids);
-  const indexed = useServerSearchCoverage(ids);
+  const notes = useNotesIndexed(ids);
 
   // Server search returns matching notes across the cohort in one call; the
   // in-browser search downloads and indexes every patient's whole record.
@@ -129,9 +134,9 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
       ...r,
       lastVisit: visits?.get(r.id)?.last?.date,
       lastIbdVisit: visits?.get(r.id)?.lastIbd?.date,
-      // Sort keys for the check-mark columns: 1 yes, 0 no, null not known yet.
-      genomics: genomics.ids.has(r.id) ? 1 : genomics.status === 'ready' ? 0 : null,
-      indexed: indexed.ids.has(r.id) ? 1 : indexed.status === 'ready' && !indexed.unknown?.has(r.id) ? 0 : null,
+      // Sort keys for the other-API columns: the count, 0 for none, null while unknown.
+      genomics: genomics.data.get(r.id)?.rare ?? (genomics.status === 'ready' && !genomics.unknown.has(r.id) ? 0 : null),
+      notesIndexed: notes.data.get(r.id) ?? (notes.status === 'ready' && !notes.unknown.has(r.id) ? 0 : null),
     }));
     if (active) {
       hits = hits.map(r => {
@@ -152,7 +157,7 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
     const sorted = [...hits].sort((a, b) =>
       compare(a[sortColumn as keyof PatientRow], b[sortColumn as keyof PatientRow]));
     return sortDir === 'desc' ? sorted.reverse() : sorted;
-  }, [rows, visits, genomics, indexed, terms, sortColumn, sortDir, active, results, onlyMatches]);
+  }, [rows, visits, genomics, notes, terms, sortColumn, sortDir, active, results, onlyMatches]);
 
   const page = filtered.slice(offset, offset + PAGE_SIZE);
   const counts = useMemo(() => ({
@@ -168,10 +173,10 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
         <div>
           <h1>Patients</h1>
           <EndpointPicker />
-          <PopulationPicker />
           <p className="muted">
             {rows.length} synthetic patients · {counts.female} female · {counts.male} male
           </p>
+          <PopulationPicker />
         </div>
         <div className="section-actions">
           {selection.length > 0 && (
@@ -268,11 +273,22 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
             },
           })) : []),
           { propName: 'genomics', label: 'Genomics', dataType: 'number', sortProp: 'genomics',
-            renderCell: (r: PatientRow) => <CoverageCell cov={genomics} id={r.id}
-              yes="Has a genomic sample (synthetic genomics API)" no="No genomic sample" /> },
-          { propName: 'indexed', label: 'Server search', dataType: 'number', sortProp: 'indexed',
-            renderCell: (r: PatientRow) => <CoverageCell cov={indexed} id={r.id}
-              yes="Notes indexed for server search (fhirfts)" no="No notes in the server search index" /> },
+            renderCell: (r: PatientRow) => (
+              <CoverageCell cov={genomics} id={r.id} none="No genomic sample for this patient">
+                {v => (
+                  <span className="coverage-cell" data-tooltip={`${v.sampleId}: ${plural(v.rare, 'rare classified variant')} (gnomAD under 1%; pathogenic, likely pathogenic, conflicting or VUS), ${plural(v.plp, 'pathogenic or likely pathogenic call')} at any frequency. Child only, before the Genomic findings section's gene and coding filters.`}>
+                    <span className="coverage-yes">✓</span> {v.rare}
+                    {v.plp > 0 && <> <Badge variant="danger">{v.plp} P/LP</Badge></>}
+                  </span>
+                )}
+              </CoverageCell>
+            ) },
+          { propName: 'notesIndexed', label: 'Notes indexed', dataType: 'number', sortProp: 'notesIndexed',
+            renderCell: (r: PatientRow) => (
+              <CoverageCell cov={notes} id={r.id} none="No notes in the server search index">
+                {n => <span className="coverage-cell" data-tooltip={`${plural(n, 'note')} in the server search (fhirfts) index`}><span className="coverage-yes">✓</span> {n}</span>}
+              </CoverageCell>
+            ) },
           { propName: 'gender', label: 'Sex', dataType: 'string', sortProp: 'gender' },
           // Some cohorts (e.g. smartcumulus.org) omit birth dates, so both can be empty.
           { propName: 'birthDate', label: 'Birth date', dataType: 'string', sortProp: 'birthDate',

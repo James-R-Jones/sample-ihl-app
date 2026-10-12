@@ -207,21 +207,27 @@ excluded), or any encounter with a pediatric gastroenterology note. The rule is
 
 ### Other-API columns (patient list)
 
-**Genomics** and **Server search** show a check mark when the patient also has data there.
+**Genomics** and **Notes indexed** show a check mark and a count when the patient also has data
+there.
 
-- **Genomics:** the synthetic genomics API has a sample whose subject is the patient (parents'
-  samples, `<id>-M` and `<id>-F`, do not count). Uses the cached sample list, so it costs nothing
-  after the first load. On 2026-10-12 all ten v2 patients had one and no v1 patient did.
-- **Server search:** the patient has notes in the sds-es-fhir index. One cohort-wide notes
-  search per patient with the patient id as the keyword (it matches the notes' subject
+- **Genomics** (probands only; parents' samples, `<id>-M` and `<id>-F`, are not counted): the
+  number of rare classified variants in the child's sample (gnomAD under 1%; pathogenic, likely
+  pathogenic, conflicting or VUS), plus a red **P/LP** badge with the number of pathogenic or
+  likely pathogenic calls at any frequency. These are the two queries the Genomic findings
+  section starts with, before its gene and coding filters, so the section's own count is
+  smaller. The queries share the section's remembered execution ids (44 days); uncached, all ten
+  probands take about 13 s. On 2026-10-12 the v2 children had 49 to 71 rare classified variants,
+  and three had P/LP calls (P004 Carlton 2, P003 1, P007 1). No v1 patient has a sample.
+- **Notes indexed:** the number of the patient's notes in the sds-es-fhir index. One cohort-wide
+  notes search per patient with the patient id as the keyword (it matches the notes' subject
   reference), three at a time, each retried once. They take 0.4 to 10 s and up to about 1 MB
-  each. Combining ids with `+` is faster but some combinations fail without CORS headers, so
-  each id is checked on its own. Results are kept for the browser session
-  (`sessionStorage` `ihl-patient-app.ftsIndexed`).
+  each. Combining ids with `+` is faster but some combinations fail without CORS headers, so each
+  id is checked on its own. Counts are kept for the browser session (`sessionStorage`
+  `ihl-patient-app.ftsIndexed.v2`).
 
 **n/a** means the check could not run (no fhirfts service for the data source, or the call
-failed; the tooltip says which). Both columns sort, with unknowns last. Logic is in
-`src/coverage.ts`.
+failed; the tooltip says which). Both columns sort by their count, with unknowns last. Logic is
+in `src/coverage.ts`.
 
 ### Cohort search (patient list)
 

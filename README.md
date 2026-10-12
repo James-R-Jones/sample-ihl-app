@@ -40,7 +40,7 @@ The **Data source** dropdown on the patient list switches between cohort endpoin
 | SMART Cumulus · Synthetic IBD v2 (default) | `https://www.smartcumulus.org/synthetic/fhir/cumulus_sim_ibd_v2` | FastAPI |
 | Cumulus dashboard (test) · Synthetic IBD v2 | `https://dashboard-test.smartcumulus.org/test/fhir/cumulus_sim_ibd_v2` | FastAPI |
 | SMART Cumulus · Synthetic IBD | `https://www.smartcumulus.org/synthetic/fhir/sim-ibd-patients` | FastAPI |
-| AWS test · Synthetic IBD | `https://04sdlmjrsh.execute-api.us-east-1.amazonaws.com/test/fhir/sim-ibd-patients` | AWS (currently returns 403) |
+| AWS test · Synthetic IBD (requires VPN) | `https://04sdlmjrsh.execute-api.us-east-1.amazonaws.com/test/fhir/sim-ibd-patients` | AWS; returns 403 off the VPN |
 
 **Add…** saves another endpoint in this browser after testing it (`GET /resources` and a Patient
 list call). Endpoints differ in two protocol details, set per endpoint in `src/endpoints.ts`:

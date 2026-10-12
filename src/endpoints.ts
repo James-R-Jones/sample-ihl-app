@@ -54,7 +54,7 @@ export const BUILTIN_ENDPOINTS: Endpoint[] = [
   },
   {
     id: 'aws-test-ibd',
-    label: 'AWS test · Synthetic IBD',
+    label: 'AWS test · Synthetic IBD (requires VPN)',
     url: 'https://04sdlmjrsh.execute-api.us-east-1.amazonaws.com/test/fhir/sim-ibd-patients',
     jsonContentType: false,
     trailingSlash: true,

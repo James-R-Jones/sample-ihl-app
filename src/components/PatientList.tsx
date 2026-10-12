@@ -4,7 +4,9 @@ import { listAllPatients } from '../api';
 import { toRow, type PatientRow } from '../patient';
 import { useCohortIndex, useCohortResults } from '../cohortSearch';
 import { href, navigate } from '../routes';
-import { firstAndLast, groupResults, parseQuery, type SearchResult } from '../search';
+import { buildIndex, firstAndLast, groupResults, parseQuery, search, type SearchResult } from '../search';
+import { searchCohortNotes, serverKeyword, useSearchEngine, useServerQuery } from '../serverSearch';
+import { EngineToggle } from './EngineToggle';
 import { SearchGroupsList } from './SearchGroupsList';
 import { SearchResultsList, resultKey } from './SearchResultsList';
 import { EndpointPicker } from './EndpointPicker';
@@ -58,8 +60,26 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
   const terms = useMemo(() => parseQuery(deferredQuery), [deferredQuery]);
   const active = terms.length > 0;
   const ids = useMemo(() => rows.map(r => r.id), [rows]);
-  const cohort = useCohortIndex(ids, active);
-  const results = useCohortResults(cohort.entries, terms, cohort.loaded);
+
+  // Server search returns matching notes across the cohort in one call; the
+  // in-browser search downloads and indexes every patient's whole record.
+  const { effective } = useSearchEngine();
+  const keyword = serverKeyword(terms);
+  const onServer = active && effective === 'server' && !!keyword;
+  const server = useServerQuery(keyword, onServer, searchCohortNotes);
+  const serverFailed = onServer && server.status === 'error';
+  const useServer = onServer && !serverFailed;
+  const serverReady = useServer && server.status === 'ready' && server.keyword === keyword;
+
+  const cohort = useCohortIndex(ids, active && !useServer);
+  const browserResults = useCohortResults(cohort.entries, terms, cohort.loaded);
+  const serverResults = useMemo(() => {
+    const out = new Map<string, SearchResult[]>();
+    if (!serverReady || !server.data) return out;
+    for (const id of ids) out.set(id, search(buildIndex({ notes: server.data.get(id) ?? [] }), terms));
+    return out;
+  }, [serverReady, server.data, ids, terms]);
+  const results = useServer ? serverResults : browserResults;
   useEffect(() => saveQuery(recordQuery), [recordQuery]);
 
   // DataGrid decides which columns are visible once, when it mounts, and
@@ -159,11 +179,23 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
             <span className="muted">The search box above the table looks through names and every patient's full record, notes included. All words must match; quotes keep a phrase.</span>
           ) : (
             <>
-              <span>
-                <b>{[...results.values()].filter(r => r.length > 0).length}</b> of {cohort.loaded} patient{cohort.loaded === 1 ? '' : 's'} searched have matches
-                {cohort.loaded < cohort.total && <span className="muted"> · indexing records {cohort.loaded}/{cohort.total}…</span>}
-              </span>
-              {cohort.failed > 0 && (
+              {useServer ? (
+                <span>
+                  {serverReady ? (
+                    <>
+                      <b>{[...results.values()].filter(r => r.length > 0).length}</b> of {ids.length} patients have matching notes
+                      <span className="muted"> · server search, {((server.ms ?? 0) / 1000).toFixed(1)} s. Covers notes only; open a patient to search the whole record.</span>
+                    </>
+                  ) : <span className="muted">Searching notes on the server for "{keyword}"…</span>}
+                </span>
+              ) : (
+                <span>
+                  <b>{[...results.values()].filter(r => r.length > 0).length}</b> of {cohort.loaded} patient{cohort.loaded === 1 ? '' : 's'} searched have matches
+                  {cohort.loaded < cohort.total && <span className="muted"> · indexing records {cohort.loaded}/{cohort.total}…</span>}
+                  {serverFailed && <span className="muted"> · server search failed ({server.error}), searching in the browser</span>}
+                </span>
+              )}
+              {!useServer && cohort.failed > 0 && (
                 <span className="cohort-search-failed">
                   {cohort.failed} record{cohort.failed === 1 ? '' : 's'} failed to load{' '}
                   <Button variant="muted" onClick={cohort.retry}>Retry</Button>
@@ -173,6 +205,7 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
                 <CheckBox checked={onlyMatches} onChange={e => setOnlyMatches(e.currentTarget.checked)} />
                 Only patients with matches
               </label>
+              <EngineToggle />
             </>
           )}
         </div>
@@ -189,7 +222,7 @@ export function PatientList({ onOpen }: { onOpen: (id: string) => void }) {
           ...(showSearchCols ? [{
             propName: 'matches', label: 'Matches', dataType: 'number' as const, sortProp: 'matches',
             renderCell: (r: PatientRow & { matches: number | null }) => {
-              const st = cohort.entries[r.id]?.status;
+              const st = useServer ? undefined : cohort.entries[r.id]?.status;
               if (st === 'error') return <span className="muted">failed</span>;
               if (r.matches == null) return <span className="muted">…</span>;
               if (r.matches === 0) return <span className="muted">0</span>;

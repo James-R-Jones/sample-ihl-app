@@ -131,6 +131,30 @@ snippets. Links to the overall first and most recent match sit above the list. C
 result opens a dialog with every matching field, the full note text with matches highlighted,
 the raw source, and "Show visit" for the encounter it belongs to (shown with `EncounterDetail`).
 
+### Server search (fhirfts)
+
+Both search boxes (Search this record, and the patient list) can search on the server with
+sds-es-fhir: `POST {origin}/fhirfts/fts/{cohort}` with `{"keyword", "patient_id"?}`, derived from
+the data source URL (`…/fhir/{cohort}` → `…/fhirfts/fts/{cohort}`). A **Search on: Server / In
+browser** switch beside each box chooses the engine; Server is the default, and the choice is
+kept in this browser (`src/serverSearch.ts`).
+
+- The service matches one keyword as a substring of any field and returns whole resources. The
+  app sends the longest word of the query, then runs its own matcher over the returned resources,
+  so every word, quoted phrases, type filters, snippets and first/latest dates work as before, and
+  hits only on ids or codes drop out. Calls wait for a 0.5 s pause in typing.
+- **Record search** (`patient_id`) covers every resource type in the record. On `03a10f03` it gave
+  the same results as the in-browser search (fistula 19, "perianal fistula" 13, seton 15), in
+  0.2 to 0.9 s.
+- **Cohort search** (no `patient_id`) covers notes only (DocumentReference and DiagnosticReport),
+  in one call instead of downloading every patient's record; counts are lower than the in-browser
+  search for that reason, and the status line says so.
+- If the server fails, the app searches in the browser and says why. As of 2026-10-12 some
+  record searches fail on the server for one patient (`infliximab` and `calprotectin` on
+  `03a10f03`); the error comes back without CORS headers, so the browser cannot see its status.
+  Sources without the service (403, 404, 405, or "No base URL configured") switch to the
+  in-browser search for the rest of the page load.
+
 ### Visit columns (patient list)
 
 **Last visit** and **Last IBD clinic visit** show the date (linking to that visit's page) with

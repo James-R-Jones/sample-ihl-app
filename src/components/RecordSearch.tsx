@@ -6,6 +6,8 @@ import type { SectionConfigs } from '../settings';
 import { SearchResultDialog } from './SearchResultDialog';
 import { SearchResultsList, resultKey } from './SearchResultsList';
 import { SearchGroupsList, fmtDay, groupCount } from './SearchGroupsList';
+import { EngineToggle } from './EngineToggle';
+import { searchPatient, serverKeyword, useSearchEngine, useServerQuery } from '../serverSearch';
 
 type Config = SectionConfigs['search'];
 
@@ -34,10 +36,24 @@ export function RecordSearch({ resources, config, patientId, intent }: {
   // Typing stays responsive; the search catches up on the deferred value.
   const deferred = useDeferredValue(query);
   const terms = useMemo(() => parseQuery(deferred), [deferred]);
+  // Server search narrows the candidates; the local matcher applies every
+  // term and builds the snippets, so results look the same either way.
+  const { effective } = useSearchEngine();
+  const keyword = serverKeyword(terms);
+  const onServer = effective === 'server' && !!keyword;
+  const server = useServerQuery(keyword, onServer, k => searchPatient(patientId, k));
+  const serverFailed = onServer && server.status === 'error';
   const all = useMemo(() => {
-    const r = search(index, terms);
+    let pool = index;
+    if (onServer && !serverFailed) {
+      if (server.status !== 'ready' || server.keyword !== keyword) return [];
+      const keys = new Set((server.data ?? []).map(r => `${r.resourceType}/${r.id}`));
+      pool = index.filter(x => keys.has(`${x.resource.resourceType}/${x.resource.id}`));
+    }
+    const r = search(pool, terms);
     return config.notesOnly ? r.filter(x => x.inNote) : r;
-  }, [index, terms, config.notesOnly]);
+  }, [index, terms, config.notesOnly, onServer, serverFailed, server, keyword]);
+  const serverBusy = onServer && !serverFailed && (server.status !== 'ready' || server.keyword !== keyword);
 
   // Arriving with a search: bring this section into view and open the
   // requested result once (the intent is per navigation, not per render).
@@ -80,11 +96,18 @@ export function RecordSearch({ resources, config, patientId, intent }: {
         onChange={e => { setQuery(e.target.value); setLimit(config.pageSize); setType(null); }}
         aria-label="Search this patient's record"
       />
-      <p className="muted search-hint">
-        {terms.length === 0
-          ? `${index.length.toLocaleString()} resources indexed, including note text. All words must match; use quotes for a phrase.`
-          : `${all.length.toLocaleString()} result${all.length === 1 ? '' : 's'}${deferred !== query ? '…' : ''}`}
-      </p>
+      <div className="search-hint-row">
+        <p className="muted search-hint">
+          {terms.length === 0
+            ? `${index.length.toLocaleString()} resources in this record, including note text. All words must match; use quotes for a phrase.`
+            : serverBusy
+              ? `Searching on the server for "${keyword}"…`
+              : `${all.length.toLocaleString()} result${all.length === 1 ? '' : 's'}${deferred !== query ? '…' : ''}${
+                  onServer && !serverFailed && server.ms != null ? ` · server search, ${(server.ms / 1000).toFixed(1)} s` : ''}${
+                  serverFailed ? ` · server search failed (${server.error}), searched in the browser instead` : ''}`}
+        </p>
+        <EngineToggle />
+      </div>
 
       {counts.length > 1 && (
         <div className="search-filters">
@@ -132,7 +155,7 @@ export function RecordSearch({ resources, config, patientId, intent }: {
           Show more ({((view === 'groups' ? groupCount(shown) : shown.length) - limit).toLocaleString()} remaining)
         </Button>
       )}
-      {terms.length > 0 && all.length === 0 && deferred === query && <p className="muted">No matches.</p>}
+      {terms.length > 0 && all.length === 0 && deferred === query && !serverBusy && <p className="muted">No matches.</p>}
 
       {open && <SearchResultDialog result={open} terms={terms} resources={resources} onClose={close} />}
     </div>

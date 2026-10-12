@@ -14,7 +14,8 @@ import { usePopulation } from '../outcomes/population';
 import {
   SUBTYPE_CD, evaluate, toStrata, widen, type Evaluation, type RankedTherapy, type Selection, type StratKey,
 } from '../outcomes/engine';
-import { deriveProfile, type IbdProfile } from '../outcomes/profile';
+import { deriveProfile, withStudy, type IbdProfile } from '../outcomes/profile';
+import { useStudyPatient, type StudyState } from '../studyVariables';
 import type { SectionConfigs } from '../settings';
 
 export type OutcomesConfig = SectionConfigs['outcomes'];
@@ -60,11 +61,36 @@ type Props = { patient: Patient; resources: Record<string, unknown[]>; config: O
 /** Starts again from the patient's values (and auto-widens) when the population changes. */
 export function TherapyOutcomes(props: Props) {
   const pop = usePopulation();
-  return <OutcomesForPopulation key={pop.id} {...props} />;
+  // The study API's computed values replace the ones read from the record
+  // here. It takes several seconds uncached, so the section waits for it (up
+  // to STUDY_WAIT) rather than starting from one profile and switching.
+  const study = useStudyPatient(props.patient.id ?? "", props.config.useStudy && !!props.patient.id);
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    if (study.status !== 'loading') return;
+    const t = setTimeout(() => setGaveUp(true), STUDY_WAIT);
+    return () => clearTimeout(t);
+  }, [study.status]);
+  if (study.status === 'loading' && !gaveUp) return <Loader msg="Loading study variables…" />;
+  return <OutcomesForPopulation key={`${pop.id}:${study.status}`} {...props} study={study} />;
 }
 
-function OutcomesForPopulation({ patient, resources, config }: Props) {
-  const profile = useMemo(() => deriveProfile(patient, resources), [patient, resources]);
+const STUDY_WAIT = 20000;
+
+function StudyNote({ study }: { study: StudyState }) {
+  if (study.status === 'ready') {
+    return <p className="muted outcome-study-note">Patient values come from the study API (the Cumulus IBD study, computed from coded data and NLP of the notes) where it has them, and from this record otherwise.</p>;
+  }
+  if (study.status === 'error') return <p className="muted outcome-study-note">Study API unavailable ({study.error}); patient values are read from this record.</p>;
+  if (study.status === 'loading') return <p className="muted outcome-study-note">The study API is slow to answer; patient values are read from this record.</p>;
+  return null;
+}
+
+function OutcomesForPopulation({ patient, resources, config, study }: Props & { study: StudyState }) {
+  const profile = useMemo(() => {
+    const p = deriveProfile(patient, resources);
+    return study.status === 'ready' ? withStudy(p, study.data) : p;
+  }, [patient, resources, study]);
   const { cube, error } = useOutcomeCube();
 
   const [values, setValues] = useState<Values>(() => fromProfile(profile));
@@ -168,6 +194,7 @@ function OutcomesForPopulation({ patient, resources, config }: Props) {
         How long children like this patient stayed free of steroid rescue, escalation or surgery on each
         first-line therapy, in a synthetic reference cohort of {cube.total.toLocaleString()} children with IBD.
       </p>
+      <StudyNote study={study} />
 
       <div className="outcome-strata">
         {strats.map(k => {

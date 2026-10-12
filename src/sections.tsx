@@ -16,6 +16,7 @@ import { LabPicker } from './components/LabPicker';
 import { PatientSummary } from './components/PatientSummary';
 import { RecordSearch } from './components/RecordSearch';
 import { PopulationPicker } from './components/PopulationPicker';
+import { StudyVariables } from './components/StudyVariables';
 import { TherapyOutcomes } from './components/TherapyOutcomes';
 import { AF_OPTIONS, CLASS_OPTIONS, GenomicFindings } from './components/GenomicFindings';
 import { IBD_CLASSES, OTHER_MEDS, TreatmentTimeline } from './components/TreatmentTimeline';
@@ -53,6 +54,25 @@ export const SECTIONS: Registry = {
   summary: {
     title: 'Patient',
     render: (_c, ctx) => <PatientSummary patient={ctx.patient} resources={ctx.resources} />,
+  },
+
+  study: {
+    title: 'Study variables',
+    render: (config, ctx) => <StudyVariables patientId={ctx.patient.id!} config={config} />,
+    settings: (config, set) => (
+      <fieldset className="setting-group">
+        <legend className="muted-label">Show</legend>
+        {([
+          ['showSummary', 'Summary fields'], ['showParis', 'Paris classification'],
+          ['showTherapyLines', 'Therapy lines'], ['showActivity', 'Disease activity'],
+        ] as const).map(([k, label]) => (
+          <label key={k} className="setting-row">
+            <CheckBox checked={config[k]} onChange={e => { const v = e.currentTarget.checked; set({ [k]: v }); }} />
+            {label}
+          </label>
+        ))}
+      </fieldset>
+    ),
   },
 
   search: {
@@ -206,6 +226,13 @@ export const SECTIONS: Registry = {
               </label>
             ))}
           </div>
+        </fieldset>
+        <fieldset className="setting-group">
+          <legend className="muted-label">Patient values</legend>
+          <label className="setting-row">
+            <CheckBox checked={config.useStudy} onChange={e => { const v = e.currentTarget.checked; set({ useStudy: v }); }} />
+            Use the study API's computed values (Paris classification, diagnosis, first-line therapy) where it has them
+          </label>
         </fieldset>
         <fieldset className="setting-group">
           <legend className="muted-label">When an exact match is too small</legend>

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
  */
 
 export const SECTION_IDS = [
-  'summary', 'search', 'timeline', 'outcomes', 'genomics', 'labTrends', 'labCharts',
+  'summary', 'study', 'search', 'timeline', 'outcomes', 'genomics', 'labTrends', 'labCharts',
   'conditions', 'medications', 'observations', 'immunizations',
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
@@ -22,6 +22,12 @@ export type ObservationFilter = 'All' | 'IBD' | 'Labs' | 'Vitals' | 'Social' | '
 
 export interface SectionConfigs {
   summary: Record<string, never>;
+  study: {
+    showSummary: boolean;
+    showParis: boolean;
+    showTherapyLines: boolean;
+    showActivity: boolean;
+  };
   search: {
     /** Only results whose match is inside clinical note text. */
     notesOnly: boolean;
@@ -55,6 +61,8 @@ export interface SectionConfigs {
     showRanges: boolean;
     /** On opening, widen until two therapies can be compared. */
     autoWiden: boolean;
+    /** Start from the study API's computed values where it has them. */
+    useStudy: boolean;
   };
   genomics: {
     /** Upper gnomAD allele frequency for the variant query (1 = any). */
@@ -88,7 +96,7 @@ export interface Settings {
 
 const IBD_LABS = ['CRP', 'ESR', 'Calprotectin', 'Albumin', 'Hemoglobin', 'Platelets', 'Weight', 'BMI'];
 
-/** Default sections: patient, search, timeline, therapy outcomes, genomic findings. */
+/** Default sections: patient, study variables, search, timeline, therapy outcomes, genomic findings. */
 const LAYOUT_REV = 2;
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -96,6 +104,7 @@ export const DEFAULT_SETTINGS: Settings = {
   layoutRev: LAYOUT_REV,
   layout: [
     { id: 'summary',       visible: true,  wide: true },
+    { id: 'study',         visible: true,  wide: true },
     { id: 'search',        visible: true,  wide: true },
     { id: 'timeline',      visible: true,  wide: true },
     { id: 'outcomes',      visible: true,  wide: true },
@@ -110,6 +119,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ],
   config: {
     summary: {},
+    study: { showSummary: true, showParis: true, showTherapyLines: true, showActivity: true },
     search: { notesOnly: false, excludeTypes: [], pageSize: 25 },
     timeline: {
       labs: ['CRP', 'Calprotectin', 'Albumin', 'Hemoglobin'],
@@ -128,6 +138,7 @@ export const DEFAULT_SETTINGS: Settings = {
       showCurves: true,
       showRanges: true,
       autoWiden: true,
+      useStudy: true,
     },
     genomics: {
       maxAf: 0.01,

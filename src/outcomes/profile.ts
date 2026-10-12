@@ -24,6 +24,7 @@
 import type { Condition, DocumentReference, MedicationRequest, Patient } from 'fhir/r4';
 import { attachmentText } from '../encounter';
 import type { Therapy } from './cube';
+import type { StudyPatient } from '../studyVariables';
 
 export interface Derived<T> {
   value: T | null;
@@ -171,4 +172,79 @@ export function deriveProfile(patient: Patient, resources: Record<string, unknow
   }
 
   return { diagnosisDate: first?.date, age, gender, subtype, severity, perianal, firstLine };
+}
+
+/* ---------- values from the study API ---------- */
+
+const STUDY_SUBTYPE: Record<string, number> = { CD: 0, UC: 1, IBDU: 2 };
+const SUBTYPE_NAME = ['Crohn\'s disease', 'Ulcerative colitis', 'IBD-unclassified'];
+/** When the first line has several classes, the most advanced one is taken as first-line therapy. */
+const ADVANCED_FIRST: Therapy[] = ['JAK_INHIBITOR', 'ANTI_INTERLEUKIN', 'ANTI_INTEGRIN', 'ANTI_TNF', 'IMMUNOMODULATOR', 'AMINOSALICYLATE'];
+const CLASS_LABEL: Record<string, string> = {
+  JAK_INHIBITOR: 'JAK inhibitor', ANTI_INTERLEUKIN: 'anti-interleukin', ANTI_INTEGRIN: 'anti-integrin',
+  ANTI_TNF: 'anti-TNF', IMMUNOMODULATOR: 'immunomodulator', AMINOSALICYLATE: '5-ASA',
+};
+
+/**
+ * The profile with the study's computed values in place of the ones read
+ * from the record here. The study (cumulus-library-ibd-cds) resolves the
+ * diagnosis date, age at diagnosis and Paris classification from coded data
+ * and NLP of the notes; values it leaves empty keep the record-based ones.
+ * Severity follows the cube's definition: Crohn's is severe with perianal
+ * disease, B2/B3 behavior or growth failure (Paris G1) at baseline, otherwise
+ * the first PCDAI from the notes; colitis is severe with Paris S1, otherwise
+ * the first PUCAI from the notes.
+ */
+export function withStudy(p: IbdProfile, s: StudyPatient): IbdProfile {
+  const r = s.subject;
+  if (!r) return p;
+  const src = 'Study API';
+  const out: IbdProfile = { ...p };
+
+  const sub = STUDY_SUBTYPE[String(r.ibd_diagnosis_subtype_best)];
+  const dxDate = r.ibd_diagnosis_date_best ? String(r.ibd_diagnosis_date_best) : undefined;
+  if (sub != null) {
+    out.subtype = { value: sub, source: `${src}: ${SUBTYPE_NAME[sub]}, diagnosed ${fmt(dxDate)}`, date: dxDate };
+    out.diagnosisDate = dxDate ?? p.diagnosisDate;
+  }
+
+  const age = typeof r.age_at_diagnosis_years === 'number' ? r.age_at_diagnosis_years : null;
+  if (age != null) {
+    out.age = age >= 0 && age <= 17
+      ? { value: age, source: `${src}: age at diagnosis${dxDate ? ` (${fmt(dxDate)})` : ''}` }
+      : { value: null, source: `${src}: diagnosed at ${age} years, outside the cube's 0 to 17` };
+  }
+
+  const subtype = out.subtype.value;
+  if (subtype === 0) {
+    const peri = r.paris_cd_perianal_baseline;
+    if (peri === 'PRESENT') out.perianal = { value: 0, source: `${src}: perianal disease at baseline (Paris p)` };
+    else if (peri === 'ABSENT') out.perianal = { value: 1, source: `${src}: no perianal disease at baseline` };
+
+    const beh = r.paris_cd_behavior_baseline ? String(r.paris_cd_behavior_baseline) : null;
+    const growth = r.paris_growth_baseline === 'G1';
+    if (out.perianal.value === 0) out.severity = { value: 2, source: `${out.perianal.source}, so severe` };
+    else if (beh && /B[23]/.test(beh)) out.severity = { value: 2, source: `${src}: Paris ${beh} at baseline (stricturing or penetrating), so severe` };
+    else if (growth) out.severity = { value: 2, source: `${src}: growth failure at baseline (Paris G1), so severe` };
+    else if (beh || peri) {
+      // The study rules out the severe criteria; only a PCDAI from the notes can grade it.
+      out.severity = p.severity.source.startsWith('PCDAI')
+        ? p.severity
+        : { value: null, source: `${src}: Paris ${beh ?? ''} with no perianal disease or growth failure at baseline, and no PCDAI in the notes: mild or moderate, not documented which` };
+    }
+  } else if (subtype === 1 || subtype === 2) {
+    if (r.paris_uc_severity_baseline === 'S1') out.severity = { value: 2, source: `${src}: Paris S1 (ever severe) at baseline` };
+  }
+
+  const line1 = s.therapyClasses.filter(c => Number(c.therapy_line_number) === 1);
+  const first = ADVANCED_FIRST.find(t => line1.some(c => c.rx_class === t));
+  if (first) {
+    const others = line1.map(c => String(c.rx_class)).filter(c => c !== first);
+    out.firstLine = {
+      therapy: first,
+      drug: `${src}: therapy line 1, ${CLASS_LABEL[first]}${others.length ? ` (with ${others.map(c => CLASS_LABEL[c] ?? c).join(', ')})` : ''}`,
+      date: String(line1.find(c => c.rx_class === first)?.class_start_date ?? '') || undefined,
+    };
+  }
+  return out;
 }

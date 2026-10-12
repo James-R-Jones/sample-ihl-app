@@ -276,6 +276,35 @@ server-side index instead.
   home health, other) or shown all at once, and grouped one row per class or per visit type.
 - Clicking any bar or point opens its details in the timeline sidebar.
 
+### Study variables
+
+Shows what the Cumulus IBD study (cumulus-library-ibd-cds, version 007) computed for the patient
+from coded data and NLP of the notes, from sds-study-variables (`src/studyVariables.ts`,
+`src/components/StudyVariables.tsx`):
+
+- **Summary fields** from `POST …/patient/summary`, grouped by the study's categories (Overview,
+  Current symptoms, Key facts): IBD type and diagnosis date, Paris classification, endoscopy
+  (SES-CD), activity index, symptoms, last PCDAI, steroid exposure, prior surgery, perianal
+  disease. A badge counts the evidence each used. The study's source references are hashed ids,
+  so they can't be opened in the record.
+- **Paris classification** at baseline and ever, **therapy lines** (classes, start, strategy,
+  failure) and **disease activity** (clinical assessments and remission episodes), from the
+  `ibd__client_subject`, `ibd__client_therapy_line(_class)` and `ibd__client_outcome` tables of
+  `POST …/patient`.
+
+How it's called, as of 2026-10-12:
+
+- Base: the FHIR base `…/fhir/{cohort}` becomes `…/study/ibd/cohort/{cohort}_db`, so the v2
+  cohort uses `https://www.smartcumulus.org/synthetic/study/ibd/cohort/cumulus_sim_ibd_v2_db`.
+  Other data sources have no study data; the app checks with `GET …/details` first, because the
+  patient routes fail without CORS headers for a cohort the service doesn't allow.
+- Body `{"subject_ref": "<FHIR Patient.id>"}` with the **bare id**, plus `?version=007`. The
+  service hashes the id into its own `Patient/<sha>` reference; all ten v2 patients are found.
+  The documented `Patient/<id>` form fails without CORS headers.
+- Summary about 6 s, patient tables about 9 s and 240 KB (mostly timeline and encounter rows).
+  The summary and the small tables are kept in `localStorage` for a day
+  (`ihl-patient-app.study.v1`), and failed calls are retried once.
+
 ### Therapy outcomes
 
 Compares event-free survival on each first-line therapy (5-ASA, immunomodulator, anti-TNF,
@@ -321,6 +350,15 @@ another drug class, or surgery.
 
   Severity, perianal disease and growth failure count only up to 30 days after diagnosis, since
   the cube describes the disease at presentation.
+
+  **From the study API** (on by default; the gear's "Patient values" switch turns it off): the
+  section waits for the patient's study variables (up to 20 s) and uses them where they exist,
+  with "Study API" in each value's source line. Subtype, diagnosis date and age at diagnosis come
+  from `ibd__client_subject`; for Crohn's, severity is severe with Paris perianal disease, B2/B3
+  behavior or G1 growth failure at baseline, otherwise the first PCDAI from the notes; for
+  colitis, Paris S1 at baseline means severe, otherwise the first PUCAI. First-line therapy is the
+  most advanced class in therapy line 1. Anything the study leaves empty keeps the record-based
+  value below.
 
   Each stratifier can be switched off or set to another value; values not in the record can be
   picked by hand. The age window runs from exact to ±5 years.

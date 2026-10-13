@@ -5,6 +5,9 @@ A customizable React app for browsing the synthetic IBD cohort served by a
 endpoint, built with components from
 [smart-on-fhir/clinical-primitives](https://github.com/smart-on-fhir/clinical-primitives).
 
+Coding agents (and people new to the code) should start with [`AGENTS.md`](AGENTS.md): commands,
+deployment, code layout and the rules for changing it.
+
 ## Run it
 
 Requires Node.js 20.19+ or 22.12+ (Vite 7).

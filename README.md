@@ -70,8 +70,11 @@ a modal with its own settings (labs to show, chart height, data source, and so o
 button in the top bar brings hidden sections back and sets the theme. Settings are saved in localStorage.
 
 Shown by default: Patient, Search this record, Treatment timeline, Therapy outcomes and Genomic
-findings. The rest start hidden and can be added from the **Sections** menu, which appears on a
-patient page (not on the patient list). Browsers that saved an older layout get this one once.
+findings. The rest are named **Template: …** (Study variables, IBD lab trends, Conditions, IBD lab
+charts, Medications, Immunizations, Observations): they start hidden, as starting points to
+switch on or adapt, and can be added from the **Sections** menu, which appears on a patient page
+(not on the patient list). Browsers that saved an older layout get this one once
+(`LAYOUT_REV` 3).
 
 | Section | Built from | Its settings |
 |---|---|---|
@@ -283,7 +286,8 @@ server-side index instead.
 
 ### Study variables
 
-Shows what the Cumulus IBD study (cumulus-library-ibd-cds, version 007) computed for the patient
+Hidden by default ("Template: Study variables"); the Therapy outcomes section uses the same data
+whether or not it is shown. Shows what the Cumulus IBD study (cumulus-library-ibd-cds, version 007) computed for the patient
 from coded data and NLP of the notes, from sds-study-variables (`src/studyVariables.ts`,
 `src/components/StudyVariables.tsx`):
 

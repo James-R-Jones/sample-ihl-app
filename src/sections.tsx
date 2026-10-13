@@ -57,7 +57,7 @@ export const SECTIONS: Registry = {
   },
 
   study: {
-    title: 'Study variables',
+    title: 'Template: Study variables',
     render: (config, ctx) => <StudyVariables patientId={ctx.patient.id!} config={config} />,
     settings: (config, set) => (
       <fieldset className="setting-group">
@@ -326,7 +326,7 @@ export const SECTIONS: Registry = {
   },
 
   labTrends: {
-    title: 'IBD lab trends',
+    title: 'Template: IBD lab trends',
     render: config => (
       <LabTrendPanel labs={config.labs as ComponentProps<typeof LabTrendPanel>['labs']} />
     ),
@@ -334,7 +334,7 @@ export const SECTIONS: Registry = {
   },
 
   labCharts: {
-    title: 'IBD lab charts',
+    title: 'Template: IBD lab charts',
     render: config => <LabCharts labs={config.labs} height={config.height} />,
     settings: (config, set) => (
       <>
@@ -352,12 +352,12 @@ export const SECTIONS: Registry = {
   },
 
   conditions: {
-    title: 'Conditions',
+    title: 'Template: Conditions',
     render: (_c, ctx) => <ConditionList conditions={list<Condition>(ctx, 'Condition')} />,
   },
 
   medications: {
-    title: 'Medications',
+    title: 'Template: Medications',
     render: (config, ctx) => (
       <MedicationList
         medications={config.source === 'MedicationAdministration'
@@ -381,7 +381,7 @@ export const SECTIONS: Registry = {
   },
 
   observations: {
-    title: 'Observations',
+    title: 'Template: Observations',
     render: config => <ObservationsPanel filters={config.filters} />,
     settings: (config, set) => (
       <fieldset className="setting-group">
@@ -406,7 +406,7 @@ export const SECTIONS: Registry = {
   },
 
   immunizations: {
-    title: 'Immunizations',
+    title: 'Template: Immunizations',
     render: (_c, ctx) => <ImmunizationList immunizations={list<Immunization>(ctx, 'Immunization')} />,
   },
 };

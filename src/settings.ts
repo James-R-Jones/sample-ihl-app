@@ -96,15 +96,19 @@ export interface Settings {
 
 const IBD_LABS = ['CRP', 'ESR', 'Calprotectin', 'Albumin', 'Hemoglobin', 'Platelets', 'Weight', 'BMI'];
 
-/** Default sections: patient, study variables, search, timeline, therapy outcomes, genomic findings. */
-const LAYOUT_REV = 2;
+/**
+ * Default sections: patient, search, timeline, therapy outcomes, genomic
+ * findings. The rest are hidden "Template:" sections, offered from the
+ * Sections menu as starting points.
+ */
+const LAYOUT_REV = 3;
 
 export const DEFAULT_SETTINGS: Settings = {
   version: 2,
   layoutRev: LAYOUT_REV,
   layout: [
     { id: 'summary',       visible: true,  wide: true },
-    { id: 'study',         visible: true,  wide: true },
+    { id: 'study',         visible: false, wide: true },
     { id: 'search',        visible: true,  wide: true },
     { id: 'timeline',      visible: true,  wide: true },
     { id: 'outcomes',      visible: true,  wide: true },
